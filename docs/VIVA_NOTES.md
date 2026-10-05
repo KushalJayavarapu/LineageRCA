@@ -1,14 +1,14 @@
 # VIVA_NOTES.md - LineageRCA: likely questions, honest answers, limits
 
-Numbers quoted here come from `results/incidents.jsonl` and `results/summary.csv` (36 incidents, config fingerprint `d47f36ff9e6b`) and
-from `build_logs.md`. If a number is not in those files, we did not measure it and we say so.
+Numbers quoted here come from `results/incidents.jsonl` and `results/summary.csv` (36 incidents, config fingerprint `d47f36ff9e6b`; the
+latest full grid, which includes the BugDoc-style baseline B3) and from `build_logs.md`. If a number is not in those files, we did not measure it and we say so.
 
 ## 1. The 60-second explanation
 When a data-quality monitor fires, we shortlist upstream tables that changed shortly before (using the lineage graph), then for each
 suspect we re-run the downstream steps with that one table read at its snapshot from BEFORE the change (Delta time travel), every
 other input pinned to what the anomalous run used, and the same code version. If the alarming metric returns inside the monitor's
 threshold the suspect is CONFIRMED, if not DENIED (PARTIAL and INCONCLUSIVE are our extensions). Two baselines use only the lineage
-graph: most recent change, and closest table. All data and faults are SYNTHETIC; the time travel and re-execution are real.
+graph: most recent change, and closest table. A third, BugDoc-style baseline varies pipeline parameters (stage code versions) instead of snapshots. All data and faults are SYNTHETIC; the time travel and re-execution are real.
 
 ## 2. Who explains what (suggested split, four students)
 | Student | Files they should be able to walk through |
@@ -18,19 +18,28 @@ graph: most recent change, and closest table. All data and faults are SYNTHETIC;
 | C: investigators | `agents/shortlist.py`, `agents/replay.py`, `agents/baselines.py` |
 | D: scenarios, metrics, report | `tasks/faults.py`, `tasks/scenarios.py`, `configs/*.yaml`, `metrics/*`, `runners/*`, `demo/*` |
 
-## 3. Results we can quote (all SYNTHETIC)
-| Group (never pooled) | Monitor detected | Top-1 replay | Top-1 B1 recency | Top-1 B2 distance | False confirms |
-| --- | --- | --- | --- | --- | --- |
-| seed 42, s1-s4 | 3/3 | 3/3 | 1/3 | 2/3 | 0/3 |
-| held-out seeds 1-5, s1-s4 | 15/15 | 15/15 | 5/15 | 10/15 | 0/15 |
-| held-out seeds 1-5, s5-s6 (boundary) | 9/10 | 7/9 | 0/9 | 4/9 | 0/9 |
+## 3. Results we can quote (all SYNTHETIC; latest full grid)
+| Group (never pooled) | Monitor detected | Top-1 replay | B1 recency | B2 distance | B3 parameter replay | False confirms |
+| --- | --- | --- | --- | --- | --- | --- |
+| seed 42, s1-s4 | 3/3 | 3/3 | 1/3 | 2/3 | 1/3 | 0/3 |
+| held-out seeds 1-5, s1-s4 | 15/15 | 15/15 | 5/15 | 10/15 | 5/15 | 0/15 |
+| seed 42, s5-s6 (boundary) | 2/2 | 2/2 | 0/2 | 1/2 | 0/2 | 0/2 |
+| held-out seeds 1-5, s5-s6 (boundary) | 9/10 | 9/9 | 0/9 | 4/9 | 0/9 | 0/9 |
 - Top-1 is counted over DETECTED faulty incidents; detection is shown beside it so a missed alarm is not hidden.
 - Controls (s4): the monitor stayed silent in all 6 runs. Healthy days: 0 false alarms in all 36 incidents.
-- Per scenario, held-out (replay / B1 / B2 correct out of detected): s1 5/0/0 of 5; s2 5/0/5 of 5; s3 5/5/5 of 5; s5 4/0/4 of 4 (seed 1 was not
-  detected); s6 3/0/0 of 5.
-- Boundary group replay recall: 7 of 13 true-cause slots, precision 1.00 (so replay never CONFIRMED a non-cause in our runs).
-- Compute: about 6 replays and about 0.33 s per main-scenario incident. Tiny because the tables are tiny. The proposal's "about 30 minutes
-  per incident" is its own full-scale estimate (5 suspects x 3 replays x about 2 minutes); we did NOT measure anything like it.
+- B3 never blamed a wrong table (0 wrong blames in 36 incidents): it blamed only in s2 (the one scenario where a code version changed) and
+  abstained everywhere else (10 of 15 held-out main incidents, all 9 held-out boundary incidents).
+- Per scenario, held-out (replay / B1 / B2 / B3 correct out of detected): s1 5/0/0/0 of 5; s2 5/0/5/5 of 5; s3 5/5/5/0 of 5; s5 4/0/4/0 of 4
+  (seed 1 was not detected); s6 5/0/0/0 of 5.
+- **s6 is not reproducible.** We ran the full grid twice. Between the two runs the replay, B1, B2 and verdict outputs were identical for
+  every incident except the four s6 incidents at seeds 42, 1, 2 and 4. In the first grid replay was right on 3 of 5 held-out s6 incidents (it
+  abstained twice, INCONCLUSIVE on `raw_customers`), in the second on 5 of 5 (INCONCLUSIVE appeared on the decoy instead). So the boundary group
+  read 7/9 in the first grid and 9/9 in the second. Quote the s6 numbers only with this caveat.
+- Replay recall on s5 (two causes): 4 of 8 true-cause slots on the held-out seeds, in both grids: it always finds `cleaned_orders` and never
+  `raw_customers` there. Precision 1.00 in both main and boundary groups (it never CONFIRMED a non-cause).
+- Compute: replay about 6 replays and about 0.33 s per main-scenario incident; B3 ran 0 or 1 parameter tests (3 repeats each), about 0.1 s per
+  investigated incident. Tiny because the tables are tiny. The proposal's "about 30 minutes per incident" is its own full-scale estimate; we did NOT
+  measure anything like it.
 
 ## 4. Likely questions and honest answers
 
@@ -69,9 +78,11 @@ because rolling that table back also removes the upstream customer fault applied
 leftover deviation (+0.146) was 0.004 inside the 0.15 threshold; it was DENIED in seeds 2-5. We expected PARTIAL verdicts; there were 0 in all 36 incidents,
 because the two faults push revenue in opposite directions. One of five held-out seeds was not detected by the monitor at all.
 
-**Q10. s6 (non-deterministic step): what happened?** Replay sometimes returned INCONCLUSIVE (it abstained twice on the held-out seeds), but often the
-repeats agreed within the 0.02 tolerance and replay was right while still carrying a sampling bias of about 6-11% in the replayed deviation. So our
-repeat check detects strong noise only. s6 is also not reproducible between runs, even with the same seed, because its anomalous run is unseeded on purpose.
+**Q10. s6 (non-deterministic step): what happened?** The anomalous run itself uses an unseeded random 90% sample, so s6 differs between runs even
+with the same seed. INCONCLUSIVE does occur, but not predictably: in the first full grid it hit `raw_customers` twice (replay abstained, so replay
+got 3 of 5 held-out), in the second it hit the decoy twice (replay got 5 of 5). When the repeats agree within the 0.02 tolerance replay is right
+while the replayed deviation still carries a sampling bias of about 6-11%, so our repeat check detects only strong noise. Everything else in the
+grid was reproducible between the two runs.
 
 **Q11. Why 3 repeats and these thresholds?** 3 repeats comes from the proposal. Thresholds (0.15 relative, 0.05 null-rate, 0.5 partial, 0.02 instability)
 are simple, round values written into `configs/` before running scenarios. They were not tuned. We did not run a sensitivity analysis, so we cannot say
@@ -89,9 +100,17 @@ can go. A real replay re-runs real transforms on big tables and costs real compu
 **Q15. Which transforms can replay handle?** Pure, deterministic, batch transforms. Not streaming, incremental, side-effecting or random ones (s6 shows the
 last case).
 
-**Q16. How do you know the baselines are not strawmen?** Each is the best simple lineage-only rule we can defend, with the same shortlist as replay; both
-are documented in `ARCHITECTURE.md` section 15. B2 actually beats B1 everywhere and ties replay in s2 and s3. The proposal also wants a BugDoc-style
-parameter-replay baseline; we did not build it (planned stretch S3).
+**Q16. How do you know the baselines are not strawmen?** Each is the best simple rule we can defend for its substrate: B1 and B2 use the same
+shortlist as replay, and B3 uses the same decision rule, thresholds and repeats as replay. They are documented in `ARCHITECTURE.md` section 15.
+B2 actually beats B1 everywhere and ties replay in s2 and s3.
+
+**Q16b. What is B3 and what does it show?** B3 is a BugDoc-style baseline, NOT BugDoc: we use none of its code. It compares the stage code versions of
+the last healthy run with those of the anomalous run, puts the healthy versions back (one subset at a time, smallest first), re-executes day 11 with
+all inputs pinned, and checks whether the anomaly clears. It found the cause only in s2 (5 of 5 held-out, 1 of 1 at seed 42), the only scenario where
+a code version changed, and abstained everywhere else, never blaming a wrong table. So it shows that WHAT you vary matters: parameter variation cannot
+see data faults. It does not show that BugDoc is weak: real BugDoc can treat input datasets as parameters, but then the alternative dataset has to
+come from somewhere, which is exactly what snapshots provide. On s5 reverting the code fix even makes the deviation worse, because the two faults
+partly cancel.
 
 **Q17. What is in the lineage store?** Hand-built OpenLineage-style JSON events: one per run with input and output snapshot ids, the transform id and the code
 version. No Marquez or Docker.
@@ -105,11 +124,12 @@ version. No Marquez or Docker.
 - That CONFIRMED proves the other tables are innocent.
 - Any compute cost for full scale; we measured only the toy.
 - That s5 shows PARTIAL or that s6 always shows INCONCLUSIVE; neither is what happened.
+- That B3 is BugDoc, or that its failures on data faults say anything about BugDoc's quality.
 
 ## 6. Known limitations (also in the report)
 Synthetic data and authored faults; partly circular evaluation; one DAG with five tables and six scenarios (no statistical claims); replay is a clean
 counterfactual only for pure, deterministic, batch transforms; downstream rollback can mask upstream causes; code faults need versioned code; detection of
-s2 and s5 sits close to the threshold; no sensitivity analysis; no BugDoc-style baseline yet; held-out seeds do not vary the fault types.
+s2 and s5 sits close to the threshold; no sensitivity analysis; the BugDoc-style baseline B3 is a restricted version (stage code versions only); held-out seeds do not vary the fault types.
 
 ## 7. How to reproduce
 `python demo/run_demo.py` (about 31 s) for seed 42; `python -m runners.run_all` (about 3 minutes) for seeds 42 and 1-5, which rewrites

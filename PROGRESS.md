@@ -26,7 +26,7 @@ Last updated: 2026-10-05 (M0-M9 done)
 
 - [ ] **S1 [STRETCH]** Iceberg adapter (`pyiceberg`, local SQL catalog) with the same tests as the Delta store.
 - [ ] **S2 [STRETCH]** Real OpenLineage events + Marquez (needs Docker, ask first).
-- [ ] **S3 [STRETCH]** BugDoc-style parameter-replay baseline (B3).
+- [x] **S3 [STRETCH]** BugDoc-style parameter-replay baseline (B3). — done 2026-10-05 (user asked for it): agents/parameter_replay.py, B3 in results, report, findings and tests.
 - [ ] **S4 [STRETCH]** Semi-realistic DAG (TPC-H derived) and a non-determinism study (plan only, in `docs/SEM5_PLAN.md`).
 
 ## Later semesters (for context only, do not build now)

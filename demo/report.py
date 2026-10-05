@@ -32,19 +32,19 @@ TEMPLATE = """<!doctype html>
 
 <h2>1. Summary, demo seed {{ seed }} (one run per scenario)</h2>
 <div class="scroll"><table><tr><th>scenario</th><th>true cause (scoring only)</th><th>monitor</th><th>replay blames</th><th>B1 recency</th>
- <th>B2 distance</th><th>replay s</th></tr>
+ <th>B2 distance</th><th>B3 param replay</th><th>replay s</th></tr>
 {% for r in demo %}<tr><td>{{ r.scenario_id }}{% if r.boundary %} (boundary){% endif %}</td><td>{{ r.true_causes|join(', ') or 'none' }}</td>
  <td>{% if r.alarm_raised %}alarm on {{ r.anomaly_table }}/{{ r.anomaly_metric }} ({{ '%+.3f'|format(r.anomaly_deviation) }}){% else %}silent{% endif %}</td>
- {% for name, ok in [(r.replay_top1, r.replay_correct), (r.b1_blame, r.b1_correct), (r.b2_blame, r.b2_correct)] %}
+ {% for name, ok in [(r.replay_top1, r.replay_correct), (r.b1_blame, r.b1_correct), (r.b2_blame, r.b2_correct), (r.b3_blame, r.b3_correct)] %}
  <td class="{{ 'ok' if ok else 'bad' }}">{{ name or '-' }} {{ 'right' if ok else 'wrong' }}</td>{% endfor %}
  <td class="num">{{ '%.2f'|format(r.replay_seconds) }}</td></tr>{% endfor %}</table></div>
-<p class="small">"-" means that method blamed nobody (right for the control, wrong when there is a cause). Scored per incident, not pooled.</p>
+<p class="small">"-" means that method blamed nobody (right for the control, wrong when there is a cause). Scored per incident, not pooled. B3 is a BugDoc-style baseline that varies stage code versions instead of snapshots (see section 5).</p>
 
 <h2>2. Held-out seeds 1-5 (reported separately; read from results/incidents.jsonl)</h2>
-{% if heldout_rows %}<div class="scroll"><table><tr><th>group</th><th>detected</th><th>top-1 replay</th><th>top-1 B1 recency</th><th>top-1 B2 distance</th>
+{% if heldout_rows %}<div class="scroll"><table><tr><th>group</th><th>detected</th><th>top-1 replay</th><th>top-1 B1 recency</th><th>top-1 B2 distance</th><th>top-1 B3 param replay</th>
  <th>false confirms</th><th>control false alarms</th></tr>
 {% for g in heldout_rows %}<tr><td>{{ g.group }}</td><td>{{ g.detected }}/{{ g.faulty }}</td><td>{{ g.top1_replay_n }}/{{ g.investigated }}</td>
- <td>{{ g.top1_b1_n }}/{{ g.investigated }}</td><td>{{ g.top1_b2_n }}/{{ g.investigated }}</td>
+ <td>{{ g.top1_b1_n }}/{{ g.investigated }}</td><td>{{ g.top1_b2_n }}/{{ g.investigated }}</td><td>{{ g.top1_b3_n }}/{{ g.investigated }}</td>
  <td>{{ g.false_confirms }}/{{ g.non_cause_suspects }}</td><td>{{ g.control_false_alarms }}/{{ g.control_incidents }}</td></tr>{% endfor %}</table></div>
  {% if heldout_note %}<p class="bad">{{ heldout_note }}</p>{% endif %}
 {% else %}<p class="bad">{{ heldout_note }}</p>{% endif %}
@@ -58,7 +58,8 @@ TEMPLATE = """<!doctype html>
  <img alt="lineage graph" src="data:image/png;base64,{{ c.lineage }}"><img alt="metric before and after replay" src="data:image/png;base64,{{ c.metric }}">
  {% if c.r.verdicts %}<div class="scroll"><table><tr><th>suspect</th><th>pre-change snapshot</th><th>verdict</th><th>before</th><th>after</th><th>why</th></tr>
  {% for v in c.r.verdicts %}<tr><td>{{ v.suspect_table }}</td><td class="num">{{ v.suspect_snapshot_id }}</td><td>{{ v.verdict }}</td>
- <td class="num">{{ '%+.3f'|format(v.deviation_before) }}</td><td class="num">{{ '%+.3f'|format(v.deviation_after) }}</td><td>{{ v.explanation }}</td></tr>{% endfor %}</table></div>{% endif %}</div>{% endfor %}
+ <td class="num">{{ '%+.3f'|format(v.deviation_before) }}</td><td class="num">{{ '%+.3f'|format(v.deviation_after) }}</td><td>{{ v.explanation }}</td></tr>{% endfor %}</table></div>{% endif %}
+ {% if c.r.b3_notes %}<p class="small"><b>B3 (parameter replay, BugDoc-style):</b> {{ c.r.b3_notes|join(' | ') }}</p>{% endif %}</div>{% endfor %}
 
 <h2>5. Limitations</h2><ul>{% for l in limitations %}<li>{{ l }}</li>{% endfor %}</ul>
 <p class="small">Files next to this report: snapshots.csv, lineage_edges.csv, replay_verdicts.csv (all with source=synthetic), lineage_*.png, metric_*.png.</p>

@@ -22,7 +22,7 @@ def summarize_group(group: str, results: list[IncidentResult]) -> dict:
     faulty = [r for r in results if r.true_causes]
     controls = [r for r in results if not r.true_causes]
     investigated = [r for r in faulty if r.alarm_raised]
-    tp = fp = fn = non_cause = b1_tp = b1_fp = b2_tp = b2_fp = true_total = 0
+    tp = fp = fn = non_cause = b1_tp = b1_fp = b2_tp = b2_fp = true_total = b3_blamed = 0
     verdict_counts = {"CONFIRMED": 0, "DENIED": 0, "PARTIAL": 0, "INCONCLUSIVE": 0}
     for r in investigated:
         confirmed = {v.suspect_table for v in r.verdicts if v.verdict == "CONFIRMED"}
@@ -32,6 +32,7 @@ def summarize_group(group: str, results: list[IncidentResult]) -> dict:
         true_total += len(true)
         b1_tp, b1_fp = b1_tp + r.b1_correct, b1_fp + (not r.b1_correct)
         b2_tp, b2_fp = b2_tp + r.b2_correct, b2_fp + (not r.b2_correct)
+        b3_blamed += r.b3_blame is not None
         for v in r.verdicts:
             verdict_counts[v.verdict] += 1
     return {
@@ -42,6 +43,10 @@ def summarize_group(group: str, results: list[IncidentResult]) -> dict:
         "top1_b2_distance": _ratio(sum(r.b2_correct for r in investigated), len(investigated)),
         "top1_replay_n": sum(r.replay_correct for r in investigated), "top1_b1_n": sum(r.b1_correct for r in investigated),
         "top1_b2_n": sum(r.b2_correct for r in investigated), "investigated": len(investigated),
+        "top1_b3_param": _ratio(sum(r.b3_correct for r in investigated), len(investigated)),
+        "top1_b3_n": sum(r.b3_correct for r in investigated), "b3_blamed": b3_blamed,
+        "b3_abstained": len(investigated) - b3_blamed,
+        "b3_precision": _ratio(sum(r.b3_correct for r in investigated if r.b3_blame is not None), b3_blamed),
         "replay_precision": _ratio(tp, tp + fp), "replay_recall": _ratio(tp, true_total),
         "b1_precision": _ratio(b1_tp, b1_tp + b1_fp), "b2_precision": _ratio(b2_tp, b2_tp + b2_fp),
         "false_confirms": fp, "non_cause_suspects": non_cause, "false_confirm_rate": _ratio(fp, non_cause),

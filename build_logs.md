@@ -286,3 +286,35 @@ between runs. Q14 (snapshot retention limits how far back replay can go) is a de
 Honest notes: not measured and therefore not quoted: sensitivity to thresholds, full-scale compute cost, behaviour on a larger DAG, several faults on one table.
 Next: all demo-critical milestones M0-M9 are done. Stretch items (Iceberg, Marquez, BugDoc-style baseline) are NOT started; ask the user first.
 Git checkpoint printed: yes
+
+### Entry 11 — 2026-10-05 — S3 (stretch, requested by the user): BugDoc-style parameter-replay baseline (B3)
+What I did: agents/parameter_replay.py (code_config, parameter_replay, choose_blame), a small refactor of agents/replay.py (the shared `measure()`
+routine, so replay and B3 are judged in exactly the same way), B3 fields in metrics/scoring.py (b3_blame, b3_correct, b3_executions, b3_seconds,
+b3_notes), B3 columns in metrics/summary.py, runners/console.py and the HTML report, B3 sentences and one extra limitation in demo/findings.py,
+tests/test_parameter_replay.py (8 tests), ARCHITECTURE.md section 15, docs/DEMO_SCRIPT.md and docs/VIVA_NOTES.md (numbers updated).
+Design (written before running it on any held-out seed; B3 has no tunables): B3 is NOT BugDoc, only the idea restricted to the parameters this
+pipeline has (stage code versions). It compares the code versions of the last healthy run with the anomalous run, reverts each subset of the
+differing ones (smallest first), re-executes day D with all inputs pinned to what the anomalous run read, and uses replay's own decision rule,
+thresholds and repeats. It does not use the shortlist, the lineage graph or any older snapshot (a test spies on every store read to prove it).
+Commands run (exact) and result (real output, trimmed):
+- Seed 42 development run first: s1 and s3 -> no parameter differs, B3 abstains; s2 -> reverting clean_v2_no_filter to clean_v1 gives +0.165 -> +0.009,
+  CONFIRMED, blames cleaned_orders; s5 -> reverting the code makes it WORSE (-0.152 -> -0.261, the two faults partly cancel), abstains;
+  s6 -> reverting the sampled aggregate leaves the data fault (-0.326 -> -0.261), abstains; s4 -> no alarm, nothing starts.
+- `.\.venv312\Scripts\python.exe -m pytest` -> 61 passed in 114.49 s; ruff clean.
+- `.\.venv312\Scripts\python.exe -m runners.run_all` (second full grid, with B3; 2 min 57 s, config hash still d47f36ff9e6b). Top-1 over detected incidents:
+  seed42_main: replay 3/3, B1 1/3, B2 2/3, B3 1/3.  heldout_main: replay 15/15, B1 5/15, B2 10/15, B3 5/15 (B3 blamed 5, abstained 10, never wrong).
+  seed42_boundary: replay 2/2, B1 0/2, B2 1/2, B3 0/2.  heldout_boundary: replay 9/9, B1 0/9, B2 4/9, B3 0/9 (detected 9/10).
+  B3 wrong blames in all 36 incidents: 0. Controls silent 6/6. Healthy-day false alarms 0. B3 cost: 0 or 1 parameter tests, about 0.1 s.
+- Reproducibility check between the first full grid (M6) and this one: replay top-1, B1, B2 and all verdicts were IDENTICAL for 32 of 36 incidents; the 4
+  that differ are exactly s6 at seeds 42, 1, 2 and 4 (unseeded random step). First grid: s6 held-out replay 3/5 (INCONCLUSIVE on raw_customers at seeds 1
+  and 4, replay abstained), boundary group 7/9 and replay recall 0.538 (7/13). Second grid: s6 5/5 (INCONCLUSIVE on the decoy raw_fx_rates at seeds 1 and 2),
+  boundary group 9/9 and recall 0.692 (9/13). s5 is stable: replay finds 4 of 8 true-cause slots in both grids (always cleaned_orders, never raw_customers).
+Decisions (and why): the docs now quote the second grid and say explicitly that s6 changes between runs; the Entry 7 numbers for s6 are superseded, not wrong
+for that run. B3 abstains instead of guessing when nothing clears the anomaly, as a BugDoc-style search would report "no root cause found".
+Honest notes: (1) B3 failing on data faults is by construction of its search space, not evidence about BugDoc. Real BugDoc could treat input datasets as
+parameters; we did not build that variant because it would need alternative dataset versions, i.e. snapshots. (2) B3 matches replay only on s2, where the
+fault is a versioned code change; that is the one scenario type we authored for it. (3) The held-out seeds 1-5 were already seen for the other methods;
+B3 was run on them once, after being implemented, with nothing tuned. (4) The first grid's numbers for replay on s6 and the boundary group are no longer the
+latest; both runs are reported in docs/VIVA_NOTES.md.
+Next: nothing demo-critical is open. Remaining stretch items (Iceberg adapter S1, Marquez S2, TPC-H DAG plan S4) are not started; ask the user first.
+Git checkpoint printed: yes

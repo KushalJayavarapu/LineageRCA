@@ -8,6 +8,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
+from agents.parameter_replay import parameter_replay
 from agents.replay import replay_all
 from agents.shortlist import shortlist
 from core.config import Settings, config_hash, load_settings
@@ -25,7 +26,8 @@ def run_scenario(scenario_id: str, seed: int, settings: Settings, log_dir: Path 
     run = build_scenario(scenario_id, seed, settings, log_dir)
     suspects = shortlist(run.context, settings.replay)               # empty when the monitor stayed silent
     verdicts = replay_all(run.context, suspects, settings.replay)
-    result = score_incident(run.truth, run.context, suspects, verdicts, settings.replay.replay_repeats, seed, config_hash())
+    b3 = parameter_replay(run.context, settings.replay) if run.context.anomaly else None   # B3 needs an alarm to start
+    result = score_incident(run.truth, run.context, suspects, verdicts, settings.replay.replay_repeats, seed, config_hash(), b3)
     return Outcome(result, run)
 
 
@@ -42,9 +44,12 @@ def main() -> None:
     out.print(f"anomaly: {result.anomaly_table} / {result.anomaly_metric} deviation {result.anomaly_deviation}")
     for v in result.verdicts:
         out.print(f"  {v.suspect_table:15s} {v.verdict:12s} {v.explanation}")
-    out.print(f"replay top-1: {result.replay_top1} | B1 recency: {result.b1_blame} | B2 distance: {result.b2_blame}")
+    out.print(f"replay top-1: {result.replay_top1} | B1 recency: {result.b1_blame} | B2 distance: {result.b2_blame} | "
+              f"B3 parameter replay: {result.b3_blame}")
+    for note in result.b3_notes:
+        out.print(f"  B3: {note}")
     out.print(f"truth (scoring only): {result.true_causes or 'none'}  -> correct: replay {result.replay_correct}, "
-              f"B1 {result.b1_correct}, B2 {result.b2_correct}")
+              f"B1 {result.b1_correct}, B2 {result.b2_correct}, B3 {result.b3_correct}")
 
 
 if __name__ == "__main__":

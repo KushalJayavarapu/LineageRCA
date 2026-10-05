@@ -1,7 +1,7 @@
 # DEMO_SCRIPT.md - 3-minute talk track for LineageRCA
 
 Every number below comes from a real run: `results/incidents.jsonl` and `results/summary.csv` (36 incidents: demo seed 42 plus
-held-out seeds 1-5, config fingerprint `d47f36ff9e6b`) and the demo run (`python demo/run_demo.py`, about 31 s). Say "SYNTHETIC" out
+held-out seeds 1-5, config fingerprint `d47f36ff9e6b`, latest full grid including the BugDoc-style baseline) and the demo run (`python demo/run_demo.py`, about 31 s). Say "SYNTHETIC" out
 loud at least twice. If a number on screen differs from this script (scenario s6 varies between runs), trust the screen and say why.
 
 ## Before you start (not part of the 3 minutes)
@@ -38,15 +38,17 @@ In s2 a code fault removes a filter; the distance baseline is right there becaus
 ## 2:00 - 2:35  Numbers, held-out seeds, and what failed
 "On held-out seeds 1 to 5, in the four main scenarios, replay named the true cause in 15 of 15 detected incidents, the recency
 baseline in 5 of 15, the distance baseline in 10 of 15, with 0 false confirmations and 0 false alarms on the controls.
+A BugDoc-style baseline that varies pipeline parameters instead of snapshots got 5 of 15: it only finds the code fault in s2 and
+abstains on data faults, never blaming a wrong table. That is the point: what you vary matters.
 We caution: we wrote the faults and the method, so this is partly circular; it shows the mechanism works, not real-world accuracy.
-And we report where it breaks. With two causes at once, replay found only one of the two on the held-out seeds (7 of 13 true-cause
-slots in the boundary group), because rolling back a downstream table hides the upstream fault. With a random, non-deterministic
+And we report where it breaks. With two causes at once, replay found only one of the two in every detected held-out case, 4 of 8
+true-cause slots, because rolling back a downstream table hides the upstream fault. With a random, non-deterministic
 step, replay sometimes says INCONCLUSIVE and abstains, and the same seed gives different numbers on different runs."
 
 ## 2:35 - 3:00  Close
 "Replay in general is not new: BugDoc, Newt and aaiclick exist. Our narrow claim is native lakehouse time travel as the replay
 mechanism, guided by lineage shortlisting, aimed at data-quality root causes, with a proper evaluation. Next semester: more
-scenarios, a BugDoc-style baseline, Iceberg, and mild non-determinism. Thank you."
+scenarios, Iceberg, and mild non-determinism. Thank you."
 
 ## If something goes wrong
 - Demo too slow or errors: open the pre-generated `outputs/demo_report.html`; say "this is the report from an earlier run of the same command".

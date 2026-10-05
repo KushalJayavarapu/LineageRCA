@@ -7,6 +7,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from agents.baselines import blame_distance, blame_recency
+from agents.parameter_replay import ParamOutcome
 from agents.replay import top_suspect
 from agents.shortlist import Suspect
 from core.models import ReplayVerdict
@@ -38,6 +39,11 @@ class IncidentResult(BaseModel):
     replay_correct: bool
     b1_correct: bool
     b2_correct: bool
+    b3_blame: str | None = None        # BugDoc-style parameter replay (None = abstained or nothing to vary)
+    b3_correct: bool = False
+    b3_executions: int = 0
+    b3_seconds: float = 0.0
+    b3_notes: list[str] = []
     n_replays: int                     # suspects x repeats
     replay_seconds: float
     config_hash: str
@@ -59,11 +65,23 @@ def count_healthy_false_alarms(context: IncidentContext) -> int:
     return sum(len(context.monitor.evaluate(metrics, d, 0)) for d in range(4, context.day))
 
 
+def _b3_notes(b3: ParamOutcome | None) -> list[str]:
+    """Plain-language lines for the report: what B3 compared and what each test showed."""
+    if b3 is None:
+        return []
+    if not b3.differing:
+        return ["no stage code version differs between the last healthy run and the anomalous run, so there is no parameter to vary"]
+    changes = [f"{s}: {good} -> {bad}" for s, (good, bad) in sorted(b3.differing.items())]
+    return ["parameters that differ (healthy -> anomalous): " + "; ".join(changes)] + [t.explanation for t in b3.tests]
+
+
 def score_incident(truth: GroundTruth, context: IncidentContext, suspects: list[Suspect],
-                   verdicts: list[ReplayVerdict], repeats: int, seed: int, cfg_hash: str) -> IncidentResult:
+                   verdicts: list[ReplayVerdict], repeats: int, seed: int, cfg_hash: str,
+                   b3: ParamOutcome | None = None) -> IncidentResult:
     labelled = [v.model_copy(update={"ground_truth_cause": ",".join(truth.true_causes) or "none"}) for v in verdicts]
     replay, b1, b2 = top_suspect(verdicts), blame_recency(suspects), blame_distance(suspects)
     anomaly = context.anomaly
+    b3_blame = b3.blamed if b3 else None
     return IncidentResult(
         scenario_id=truth.scenario_id, seed=seed, group=group_of(seed, truth.boundary), boundary=truth.boundary,
         true_causes=truth.true_causes, decoy_tables=truth.decoy_tables, expect_alarm=truth.expect_alarm,
@@ -72,5 +90,7 @@ def score_incident(truth: GroundTruth, context: IncidentContext, suspects: list[
         healthy_day_false_alarms=count_healthy_false_alarms(context), suspects=[s.table for s in suspects],
         verdicts=labelled, replay_top1=replay, b1_blame=b1, b2_blame=b2,
         replay_correct=top1_correct(replay, truth.true_causes), b1_correct=top1_correct(b1, truth.true_causes),
-        b2_correct=top1_correct(b2, truth.true_causes), n_replays=len(suspects) * repeats,
+        b2_correct=top1_correct(b2, truth.true_causes), b3_blame=b3_blame,
+        b3_correct=top1_correct(b3_blame, truth.true_causes), b3_executions=b3.n_executions if b3 else 0,
+        b3_seconds=b3.seconds if b3 else 0.0, b3_notes=_b3_notes(b3), n_replays=len(suspects) * repeats,
         replay_seconds=sum(v.compute_seconds for v in verdicts), config_hash=cfg_hash)

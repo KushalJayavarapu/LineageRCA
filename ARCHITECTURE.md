@@ -91,7 +91,7 @@ All investigators receive the same `Anomaly` and the same lineage store, and ret
 3. **Baseline B1 `lineage_recency`**: rank shortlisted suspects by most recent change commit; blame the top one. Represents "the most
    recently changed upstream table is the likely cause" (the lineage-correlation pattern in the proposal).
 4. **Baseline B2 `lineage_distance`**: rank by graph distance to the anomalous table (closest first), ties broken by recency.
-5. **(Stretch) B3 `parameter_replay`** BugDoc-style: vary pipeline parameters instead of snapshots. Not for Review 1.
+5. **B3 `parameter_replay`** BugDoc-style: vary pipeline parameters instead of snapshots. Implemented as a stretch item after M9; see section 15.
 
 Replay never reads the ground truth. Ground truth is used only by `metrics/` to score verdicts.
 
@@ -197,3 +197,10 @@ scenarios and are reported separately from s1-s4.
   itself); ties go to the most recent change, then table name.
 - Both baselines see exactly the same shortlist as replay, use no re-execution, and never see ground truth. They are the strongest
   simple lineage-only rules we can defend; a baseline that looked at the size of each table's change would need data access and is out of scope.
+- **B3 parameter_replay (BugDoc-style, added after M9):** NOT BugDoc itself, only the idea restricted to the parameters our pipeline has, the code
+  version of each stage. It compares the code versions of the last healthy run (logical time up to `healthy_until`) with those of the anomalous run;
+  for every non-empty subset of the stages whose version differs (smallest first) it puts the healthy versions back, re-executes day D from the raw
+  tables as the anomalous run read them (pinned, never an older snapshot) and judges the alarming metric with the same `decide_verdict`, thresholds and
+  repeats as replay. It blames the output table of the stage in the smallest CONFIRMED subset (PARTIAL only if nothing is CONFIRMED) and abstains
+  otherwise. It does not use the shortlist or the lineage graph. If no parameter differs (data faults: s1, s3) it has nothing to vary and abstains.
+  Replay differs in what it rolls back (table snapshots, not code), which is the substrate question the proposal wants answered.

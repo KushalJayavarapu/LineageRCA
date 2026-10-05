@@ -40,10 +40,22 @@ LIMITATIONS = [
         'used.'
     ),
     (
+        "The BugDoc-style baseline (B3) is NOT BugDoc: it is the same idea restricted to the parameters our pipeline has (stage code "
+        "versions). Data faults are outside its search space by construction, so its failures on them show that the substrate matters, "
+        "not that BugDoc is weak."
+    ),
+    (
         'Compute cost here is a fraction of a second per incident because the tables are tiny; it says nothing about '
         'full-scale cost.'
     ),
 ]
+
+
+def _b3_sentence(r: IncidentResult) -> str:
+    """What the BugDoc-style parameter-replay baseline (B3) did, in words."""
+    if r.b3_blame is None:
+        return " Parameter replay (BugDoc-style) found no code-version change that explains it and blamed nobody."
+    return f" Parameter replay (BugDoc-style) blamed {r.b3_blame} ({'right' if r.b3_correct else 'wrong'})."
 
 
 def _scenario_sentence(r: IncidentResult) -> str:
@@ -56,13 +68,13 @@ def _scenario_sentence(r: IncidentResult) -> str:
     verdicts = ", ".join(f"{v.suspect_table} {v.verdict}" for v in r.verdicts)
     base = f"{r.scenario_id}: replay verdicts: {verdicts}. Replay blames {r.replay_top1 or 'nobody'}; truth: {truth}."
     if r.replay_correct and r.b1_correct and r.b2_correct:
-        return base + " Both lineage baselines named the same table, so replay does not win here; this is the fair-comparison case."
+        return base + " Both lineage baselines named the same table, so replay does not win here; this is the fair-comparison case." + _b3_sentence(r)
     parts = []
     parts.append(f"lineage-recency blamed {r.b1_blame or 'nobody'} ({'right' if r.b1_correct else 'wrong'})")
     parts.append(f"lineage-distance blamed {r.b2_blame or 'nobody'} ({'right' if r.b2_correct else 'wrong'})")
     prefix = "" if r.replay_correct else " Replay did NOT name a true cause here."
     joined = "; ".join(parts)
-    return base + prefix + " " + joined[0].upper() + joined[1:] + "."
+    return base + prefix + " " + joined[0].upper() + joined[1:] + "." + _b3_sentence(r)
 
 
 def _masking_sentence(results: list[IncidentResult]) -> list[str]:
@@ -84,7 +96,8 @@ def _group_sentence(row: dict) -> str:
     inv = row["investigated"]
     detected = f"{row['detected']} of {row['faulty']} faulty incidents were detected by the monitor"
     return (f"{row['group']}: {detected}; top-1 correct: replay {row['top1_replay_n']}/{inv}, lineage-recency "
-            f"{row['top1_b1_n']}/{inv}, lineage-distance {row['top1_b2_n']}/{inv}; false confirms {row['false_confirms']}/"
+            f"{row['top1_b1_n']}/{inv}, lineage-distance {row['top1_b2_n']}/{inv}, "
+            f"parameter-replay {row['top1_b3_n']}/{inv} (abstained {row['b3_abstained']}); false confirms {row['false_confirms']}/"
             f"{row['non_cause_suspects']}; control false alarms {row['control_false_alarms']}/{row['control_incidents']}.")
 
 

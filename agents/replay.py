@@ -60,16 +60,24 @@ def decide_verdict(before: float, afters: list[float], metric: str, monitor: Mon
     return "DENIED", f"{facts}: still alarming, reduced by only {reduction:.0%}"
 
 
-def replay_suspect(context: IncidentContext, suspect: Suspect, cfg: ReplayConfig) -> ReplayVerdict:
+def measure(context: IncidentContext, produce: Callable[[], pa.Table], cfg: ReplayConfig) -> tuple[list[float], float]:
+    """Run `produce` (one re-execution that returns the anomalous table) `replay_repeats` times and return, for each run,
+    the deviation of the alarming metric against the monitor's baseline, plus the seconds spent. Shared by replay and by
+    the parameter-replay baseline so both are judged in exactly the same way."""
     anomaly, monitor = context.anomaly, context.monitor
     baseline = day_metrics(context.store.read("cleaned_orders"), context.store.read("daily_revenue_agg"))
     started = time.perf_counter()
     afters = []
     for _ in range(cfg.replay_repeats):
-        value = metric_from_table(anomaly.metric, rerun_once(context, suspect), context.day)
+        value = metric_from_table(anomaly.metric, produce(), context.day)
         baseline[anomaly.metric][context.day] = value            # swap day D's value; the history days stay as they were
         afters.append(monitor.deviation(baseline, anomaly.metric, context.day))
-    seconds = time.perf_counter() - started                      # reported only; it never influences a verdict
+    return afters, time.perf_counter() - started                 # seconds are reported only; they never influence a verdict
+
+
+def replay_suspect(context: IncidentContext, suspect: Suspect, cfg: ReplayConfig) -> ReplayVerdict:
+    anomaly, monitor = context.anomaly, context.monitor
+    afters, seconds = measure(context, lambda: rerun_once(context, suspect), cfg)
     verdict, why = decide_verdict(anomaly.deviation, afters, anomaly.metric, monitor, cfg)
     return ReplayVerdict(
         incident_id=anomaly.incident_id, suspect_table=suspect.table, suspect_snapshot_id=suspect.pre_change_snapshot_id,

@@ -74,3 +74,19 @@ def test_run_demo_end_to_end_writes_every_output(small, tmp_path):
         rows = list(csv.DictReader((out / name).open(encoding="utf-8")))
         assert rows and all(r["source"] == "synthetic" for r in rows)
     assert load_heldout(small)[0] is None
+
+
+def test_load_heldout_reads_the_cache_and_flags_results_made_with_other_configs(small, tmp_path):
+    from core.config import config_hash
+    from runners.run_all import run_many, save_results
+    results = run_many(small, [7], ["s1_bad_join_key", "s4_control_no_fault"])
+    cfg = small.model_copy(update={"results_dir": tmp_path / "res"})
+    save_results(cfg, results)
+    heldout, note = load_heldout(cfg)
+    assert [r.seed for r in heldout] == [7, 7] and note == ""
+    path = cfg.results_dir / "incidents.jsonl"
+    path.write_text(path.read_text(encoding="utf-8").replace(config_hash(), "000000000000"), encoding="utf-8")
+    assert "different config" in load_heldout(cfg)[1]
+    missed = [results[0].model_copy(update={"alarm_raised": False, "verdicts": [], "suspects": []})]
+    text = "\n".join(build_findings(results, missed))
+    assert "missed these held-out incidents" in text and "s1_bad_join_key seed 7" in text and "heldout_main" in text
