@@ -35,6 +35,13 @@ class DeltaStore:
         root.mkdir(parents=True)
         self.snapshots = []
 
+    def remove(self) -> None:
+        """Delete this store's folder (same safety rule as reset: only strictly inside the warehouse)."""
+        root, wh = self.root.resolve(), self.warehouse_dir.resolve()
+        if wh not in root.parents:
+            raise ValueError(f"refusing to delete {root}: not inside the warehouse {wh}")
+        shutil.rmtree(root, ignore_errors=True)
+
     def _path(self, table: str) -> str:
         return str(self.root / table)  # Windows-safe: a plain string path
 

@@ -181,3 +181,43 @@ HONEST NOTES (kept as they are; nothing was tuned):
    weakens any claim that replay beats lineage-only: with this tiny DAG, B2 already ties replay in s2 and s3.
 Next: M6 (metrics + runners, demo seed 42 and held-out seeds 1-5).
 Git checkpoint printed: yes
+
+### Entry 7 — 2026-10-05 — M6 Metrics + runners (seed 42 and held-out seeds 1-5)
+What I did: metrics/scoring.py (IncidentResult, scoring against ground truth, healthy-day false-alarm count), metrics/summary.py (one row per
+group, groups never pooled), runners/run_scenario.py (CLI: `python -m runners.run_scenario --scenario s1_bad_join_key --seed 42`),
+runners/run_all.py, runners/console.py (rich table), config_hash() in core/config.py, DeltaStore.remove(), tests/test_metrics_runners.py.
+Held-out discipline: no file in configs/ was edited after M4 (config hash stored in every result: d47f36ff9e6b; the held-out seeds 1-5
+were run exactly once, here, and I changed nothing afterwards).
+Commands run (exact) and result (real output, trimmed):
+- `.\.venv312\Scripts\python.exe -m runners.run_all` -> 36 incidents (6 scenarios x seeds 42,1,2,3,4,5) in 2 min 55 s. Wrote results/incidents.jsonl
+  and results/summary.csv. Summary (top-1 = counted over DETECTED faulty incidents; "n/m" = n correct of m):
+  group             detected  replay  B1 recency  B2 distance  false confirms  replays/incident  replay s/incident
+  seed42_main (s1-s4)   3/3     3/3      1/3         2/3           0/3              6.0              0.31      (control s4: 0/1 false alarms)
+  seed42_boundary (s5,s6) 2/2   2/2      0/2         1/2           0/2              7.5              0.41
+  heldout_main (s1-s4, seeds 1-5) 15/15  15/15  5/15  10/15        0/15              6.0              0.33      (control s4: 0/5 false alarms)
+  heldout_boundary (s5,s6, seeds 1-5) 9/10 7/9  0/9   4/9          0/9              7.3              0.39
+  Replay suspect-level precision 1.00 / recall 1.00 in both main groups; heldout_boundary precision 1.00, recall 0.538.
+  Verdict counts heldout_main: CONFIRMED 15, DENIED 15. heldout_boundary: CONFIRMED 7, DENIED 13, PARTIAL 0, INCONCLUSIVE 2.
+  Monitor: 0 false alarms on healthy days 4-10 across all 36 incidents; control s4 silent on all 6 seeds.
+- `pytest -q` -> "48 passed in 69.10s"; `ruff check .` -> "All checks passed!"
+Honest notes (nothing was tuned; the numbers are what they are):
+1. Main scenarios: replay 15/15 on held-out vs B1 5/15 and B2 10/15. B1 fails in s1 and s2 (decoy more recent); B2 fails in s1 only (tie on
+   distance, decoy more recent). s3 is the fair case where all three agree. The comparison is circular: we wrote the faults, the decoy
+   placement and the method, and held-out seeds only change the random data, not the fault types. It shows the mechanism works on this
+   tiny DAG, not general accuracy.
+2. Boundary s5 (two causes): one of five held-out seeds was NOT detected by the monitor (seed 1; its deviation stayed under 0.15). Where detected,
+   replay always blames cleaned_orders (a true cause, so scored correct) and CONFIRMS it, because rolling back that table also removes the
+   upstream customer fault. raw_customers was CONFIRMED only at seed 42 (where its leftover deviation +0.146 sat just under the threshold) and
+   DENIED in seeds 2-5 (leftover +0.176 to +0.190). So replay finds ONE of the two causes: recall 0.538 over the 13 true-cause slots is the
+   honest number. The expected PARTIAL never happened (0 PARTIAL verdicts in all 36 incidents): the two faults push revenue in OPPOSITE
+   directions, so removing one leaves a deviation of the other sign that is as large as the original.
+3. Boundary s6 (non-deterministic aggregate): INCONCLUSIVE does occur now (2 held-out incidents, on raw_customers in seeds 1 and 4, so replay
+   abstained there; and once on the decoy at seed 42), but in the other cases the repeats agreed within 0.02 and replay was right with a
+   leftover -0.065 to -0.108 sampling bias. Replay top-1 on s6 held-out: 3 of 5 correct (2 abstentions). s6 is not reproducible between
+   runs: at seed 42 the first build (M5 exploration) gave raw_customers CONFIRMED / decoy DENIED, this grid gave decoy INCONCLUSIVE.
+4. B2 ties or beats B1 everywhere; its only blind spot in our scenarios is the tie in s1/s6. A real DAG with more tables at equal
+   distance would hurt it more; ours has four.
+5. Replay compute is tiny (about 0.33 s per incident, 6 replays) because the tables are tiny. The proposal's 30 minutes per incident is a
+   full-scale estimate; do not compare the two.
+Next: M7 (HTML report, PNG figures, CSV tables, demo/run_demo.py under 120 s).
+Git checkpoint printed: yes

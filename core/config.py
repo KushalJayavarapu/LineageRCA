@@ -1,6 +1,7 @@
 """Loads the YAML configs in configs/ and applies the .env overrides. All tunables live in those files."""
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -102,3 +103,11 @@ def load_settings() -> Settings:
         output_dir=ROOT / os.environ.get("OUTPUT_DIR", "outputs"),
         results_dir=ROOT / os.environ.get("RESULTS_DIR", "results"),
     )
+
+
+def config_hash() -> str:
+    """Short fingerprint of every YAML in configs/. Stored with each result so we can show the thresholds did not change."""
+    digest = hashlib.sha256()
+    for path in sorted(CONFIG_DIR.glob("*.yaml")):
+        digest.update(path.name.encode() + path.read_bytes())
+    return digest.hexdigest()[:12]

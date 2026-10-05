@@ -1,0 +1,5 @@
+group,incidents,faulty,detected,detection_rate,top1_replay,top1_b1_recency,top1_b2_distance,top1_replay_n,top1_b1_n,top1_b2_n,investigated,replay_precision,replay_recall,b1_precision,b2_precision,false_confirms,non_cause_suspects,false_confirm_rate,control_incidents,control_false_alarms,healthy_day_false_alarms,mean_replays,mean_replay_seconds,verdict_CONFIRMED,verdict_DENIED,verdict_PARTIAL,verdict_INCONCLUSIVE,source
+seed42_main,4,3,3,1.0,1.0,0.3333333333333333,0.6666666666666666,3,1,2,3,1.0,1.0,0.3333333333333333,0.6666666666666666,0,3,0.0,1,0,0,6.0,0.30770969999988057,3,3,0,0,synthetic
+seed42_boundary,2,2,2,1.0,1.0,0.0,0.5,2,0,1,2,1.0,1.0,0.0,0.5,0,2,0.0,0,0,0,7.5,0.41255844999795954,3,1,0,1,synthetic
+heldout_main,20,15,15,1.0,1.0,0.3333333333333333,0.6666666666666666,15,5,10,15,1.0,1.0,0.3333333333333333,0.6666666666666666,0,15,0.0,5,0,0,6.0,0.3323159866670418,15,15,0,0,synthetic
+heldout_boundary,10,10,9,0.9,0.7777777777777778,0.0,0.4444444444444444,7,0,4,9,1.0,0.5384615384615384,0.0,0.4444444444444444,0,9,0.0,0,0,0,7.333333333333333,0.38928326666710844,7,13,0,2,synthetic

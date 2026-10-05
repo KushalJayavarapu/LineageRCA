@@ -3,10 +3,10 @@
 Claude Code: update this file at the end of every milestone (tick the box, add the date and one line). Order matters.
 Everything marked **[DEMO]** must be done before anything marked **[STRETCH]**.
 
-Last updated: 2026-10-05 (M5 done)
+Last updated: 2026-10-05 (M6 done)
 
 ## Current status
-- M0-M5 done. Next: M6.
+- M0-M6 done. Next: M7.
 - This is the BACKUP idea. The main idea (CascadeGuard) lives in a separate folder.
 
 ## Demo-critical milestones
@@ -17,7 +17,7 @@ Last updated: 2026-10-05 (M5 done)
 - [x] **M3 [DEMO] Lineage + monitor** — `adapters/lineage_store.py` (runs record input/output snapshot ids), `drift/monitor.py`. Tests: silent on healthy days; fires on a hand-made fault. — done 2026-10-05: 23 tests pass, 0 false alarms on 10 healthy days.
 - [x] **M4 [DEMO] Faults + scenarios** — `tasks/faults.py`, `tasks/s1..s6` with ground truth in `configs/scenarios.yaml`. Each scenario produces the final Delta tables and a JSONL log in `results/`. — done 2026-10-05: 31 tests pass; s4 silent; s2 and s5 alarm only narrowly (see build_logs Entry 5).
 - [x] **M5 [DEMO] Investigators** — `agents/shortlist.py`, `agents/replay.py` (pinned inputs, 3 repeats, CONFIRMED/DENIED/PARTIAL/INCONCLUSIVE), `agents/baselines.py` (B1 recency, B2 distance). Tests as in ARCHITECTURE section 11. — done 2026-10-05: 42 tests pass; s1-s3 behave as specified; s5 and s6 did NOT behave as predicted (see build_logs Entry 6).
-- [ ] **M6 [DEMO] Metrics + runners** — `metrics/*`, `runners/run_scenario.py`, `runners/run_all.py` (demo seed 42 plus held-out seeds 1-5 reported separately). Log honestly what s5 and s6 do.
+- [x] **M6 [DEMO] Metrics + runners** — `metrics/*`, `runners/run_scenario.py`, `runners/run_all.py` (demo seed 42 plus held-out seeds 1-5 reported separately). Log honestly what s5 and s6 do. — done 2026-10-05: 36 incidents run (seed 42 + seeds 1-5); replay 15/15 vs B1 5/15, B2 10/15 on held-out main; boundary results mixed (see build_logs Entry 7).
 - [ ] **M7 [DEMO] Report + one-command demo** — `outputs/` HTML + PNG + CSV tables, `demo/run_demo.py` (< 120 s, offline).
 - [ ] **M8 [DEMO] Quality gate** — `pytest -q` green, `ruff check .` clean, README quick start verified, held-out seeds reported separately.
 - [ ] **M9 [DEMO] Talk material** — `docs/DEMO_SCRIPT.md` (3-minute talk track), `docs/VIVA_NOTES.md` (questions, honest answers, limitations). Real numbers only.
