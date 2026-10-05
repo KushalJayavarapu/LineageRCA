@@ -3,10 +3,10 @@
 Claude Code: update this file at the end of every milestone (tick the box, add the date and one line). Order matters.
 Everything marked **[DEMO]** must be done before anything marked **[STRETCH]**.
 
-Last updated: 2026-10-05 (M7 done)
+Last updated: 2026-10-05 (M0-M9 done)
 
 ## Current status
-- M0-M7 done. Next: M8.
+- M0-M9 done (all demo-critical milestones). Stretch items not started; ask the user first.
 - This is the BACKUP idea. The main idea (CascadeGuard) lives in a separate folder.
 
 ## Demo-critical milestones
@@ -19,8 +19,8 @@ Last updated: 2026-10-05 (M7 done)
 - [x] **M5 [DEMO] Investigators** — `agents/shortlist.py`, `agents/replay.py` (pinned inputs, 3 repeats, CONFIRMED/DENIED/PARTIAL/INCONCLUSIVE), `agents/baselines.py` (B1 recency, B2 distance). Tests as in ARCHITECTURE section 11. — done 2026-10-05: 42 tests pass; s1-s3 behave as specified; s5 and s6 did NOT behave as predicted (see build_logs Entry 6).
 - [x] **M6 [DEMO] Metrics + runners** — `metrics/*`, `runners/run_scenario.py`, `runners/run_all.py` (demo seed 42 plus held-out seeds 1-5 reported separately). Log honestly what s5 and s6 do. — done 2026-10-05: 36 incidents run (seed 42 + seeds 1-5); replay 15/15 vs B1 5/15, B2 10/15 on held-out main; boundary results mixed (see build_logs Entry 7).
 - [x] **M7 [DEMO] Report + one-command demo** — `outputs/` HTML + PNG + CSV tables, `demo/run_demo.py` (< 120 s, offline). — done 2026-10-05: demo runs in about 31 s offline; 52 tests pass.
-- [ ] **M8 [DEMO] Quality gate** — `pytest -q` green, `ruff check .` clean, README quick start verified, held-out seeds reported separately.
-- [ ] **M9 [DEMO] Talk material** — `docs/DEMO_SCRIPT.md` (3-minute talk track), `docs/VIVA_NOTES.md` (questions, honest answers, limitations). Real numbers only.
+- [x] **M8 [DEMO] Quality gate** — `pytest -q` green, `ruff check .` clean, README quick start verified, held-out seeds reported separately. — done 2026-10-05: 53 tests, ruff clean, check_env 0 FAIL, clean-copy demo 30.4 s.
+- [x] **M9 [DEMO] Talk material** — `docs/DEMO_SCRIPT.md` (3-minute talk track), `docs/VIVA_NOTES.md` (questions, honest answers, limitations). Real numbers only. — done 2026-10-05: DEMO_SCRIPT.md and VIVA_NOTES.md written from real results.
 
 ## Stretch (only after M0-M9 are done, and ask the user first)
 

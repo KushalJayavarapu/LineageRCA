@@ -246,3 +246,43 @@ raw_customers replay was INCONCLUSIVE at least once (replay abstained, boundary 
 demo can differ from the seed42 rows stored in results/incidents.jsonl. This is by design and is stated in the report findings.
 Next: M8 (quality gate: pytest, ruff, README quick start from a clean clone, held-out reported separately).
 Git checkpoint printed: yes
+
+### Entry 9 — 2026-10-05 — M8 Quality gate
+What I did: ran every gate, found and closed small gaps, updated README, simulated a clean clone.
+Commands run (exact) and result (real output, trimmed):
+- `.\.venv312\Scripts\python.exe scripts/check_env.py` -> "Summary: 26 OK, 3 WARN, 0 FAIL; READY" (WARN: pyiceberg and openlineage-python are stretch
+  only and not installed; ruff WARN is only because .venv312\Scripts is not on PATH when the venv python is called directly).
+- `.\.venv312\Scripts\ruff.exe check .` -> "All checks passed!"
+- `.\.venv312\Scripts\python.exe -m pytest` -> 53 tests collected, all passed (the final run prints dots only because pytest.ini already has -q).
+- Coverage run (pytest --cov, before adding the last test): TOTAL 96% of 966 statements; every source module is exercised. Not covered: the two
+  CLI main() functions (checked by hand instead), a few branches. I then added a test for the held-out loading path (stale-config warning,
+  held-out findings sentence).
+- Static scans: largest source file is 118 lines (scripts/check_env.py, provided at scaffold time, is 217); no print( in core, adapters,
+  agents, drift, metrics, tasks, run_logging; `git check-ignore -v` confirms .env, .venv312/, outputs/* and results/runs/ are ignored and
+  results/incidents.jsonl is tracked.
+- README: added `ruff check .`, the single-scenario command, `python -m runners.run_all`, and a "What you get" section (no numbers in it).
+- Clean-clone simulation: copied the sources to the scratchpad WITHOUT .env, .venv312, outputs/, logs/, results/runs, ran `copy .env.example .env`
+  and then, with the existing .venv312 interpreter (the rules forbid installing packages anywhere else, so `pip install` itself was NOT re-run;
+  it was verified in M0): check_env -> READY; `ruff check .` -> clean; `pytest -q` -> all passed; `python demo/run_demo.py` -> "Finished in 30.4 s
+  (limit 120 s)", all 16 output files written, held-out table read from the tracked results/incidents.jsonl.
+Problems and how I fixed them: in the copy check_env showed 1 FAIL ("`.venv312` is git-ignored") because the copy had no .venv312 folder and git
+cannot match a directory-only pattern against a path that does not exist; creating the empty folder gave "26 OK, 3 WARN, 0 FAIL". It is a simulation
+artifact (the README creates the venv first), not a .gitignore defect. The copy also contained the user's .git folder (harmless, in scratch only).
+Decisions (and why): held-out seeds are reported separately in the console table, the HTML report and results/summary.csv (groups never pooled).
+Honest notes: `pip install -r requirements*.txt` from a truly fresh machine was not re-run in this session beyond M0; the README steps after it were.
+Next: M9 (docs/DEMO_SCRIPT.md and docs/VIVA_NOTES.md, real numbers only).
+Git checkpoint printed: yes
+
+### Entry 10 — 2026-10-05 — M9 Talk material
+What I did: wrote docs/DEMO_SCRIPT.md (3-minute talk track with timings, what to show, fallbacks) and docs/VIVA_NOTES.md (60-second explanation,
+suggested split of files among four students, results table, 18 likely questions with honest answers, "do not claim" list, limitations, how to reproduce).
+Commands run (exact) and result (real output, trimmed):
+- Re-read results/incidents.jsonl (36 incidents, one config hash d47f36ff9e6b) and computed the per-scenario held-out counts that the viva notes quote:
+  held-out detected / replay / B1 / B2 correct: s1 5/5, 5, 0, 0; s2 5/5, 5, 0, 5; s3 5/5, 5, 5, 5; s4 0 alarms in 5; s5 4/5 detected, 4, 0, 4; s6 5/5 detected, 3, 0, 0.
+- Re-checked the s1 numbers quoted in the script against results/incidents.jsonl: deviation -0.261; raw_customers CONFIRMED (-0.004); raw_fx_rates DENIED (-0.263).
+Problems and how I fixed them: none.
+Decisions (and why): the script quotes only numbers present in results/ or build_logs.md and tells the speaker to trust the screen for s6, which varies
+between runs. Q14 (snapshot retention limits how far back replay can go) is a design caveat, not a measured result, and is labelled that way; no number given.
+Honest notes: not measured and therefore not quoted: sensitivity to thresholds, full-scale compute cost, behaviour on a larger DAG, several faults on one table.
+Next: all demo-critical milestones M0-M9 are done. Stretch items (Iceberg, Marquez, BugDoc-style baseline) are NOT started; ask the user first.
+Git checkpoint printed: yes
