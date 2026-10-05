@@ -1,0 +1,4 @@
+# Data-quality monitor thresholds. Fixed BEFORE any held-out seed is looked at. Do not tune to make replay win.
+rel_threshold: 0.15       # relative deviation of a metric vs the median of the previous days
+null_rate_threshold: 0.05 # absolute increase of a null rate
+baseline_days: 7          # how many previous days form the rolling baseline

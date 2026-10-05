@@ -1,0 +1,5 @@
+# Replay harness settings. Fixed BEFORE held-out seeds. Do not tune to make replay win.
+replay_repeats: 3
+partial_min_reduction: 0.5     # deviation must drop by at least this fraction to count as PARTIAL
+instability_tolerance: 0.02    # repeats that differ by more than this (relative) => INCONCLUSIVE
+shortlist_window_commits: 10   # how many commits before the anomaly a change may be and still be a suspect

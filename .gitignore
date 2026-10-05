@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Virtual environments and local settings (NEVER commit)
+.venv/
+.venv312/
+venv/
+.env
+
+# Generated files (folders stay in git through .gitkeep)
+logs/*
+!logs/.gitkeep
+outputs/*
+!outputs/.gitkeep
+results/runs/
+results/tmp/
+
+# Delta / Iceberg warehouse data (normally lives outside the repo; ignore it if someone points it inside)
+lineagerca_warehouse/
+warehouse/
+_delta_log/
+*.parquet
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

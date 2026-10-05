@@ -1,0 +1,8 @@
+# Size and shape of the SYNTHETIC pipeline. Env vars ORDERS_PER_DAY / HEALTHY_DAYS win if set.
+orders_per_day: 2000
+healthy_days: 10          # days 1..10 are healthy, day 11 is the incident day
+n_customers: 400
+regions: [north, south, east, west]
+segments: [retail, business]
+currencies: [USD, EUR, GBP]
+products: [widget, gadget, gizmo, doohickey]
