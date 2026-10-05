@@ -221,3 +221,28 @@ Honest notes (nothing was tuned; the numbers are what they are):
    full-scale estimate; do not compare the two.
 Next: M7 (HTML report, PNG figures, CSV tables, demo/run_demo.py under 120 s).
 Git checkpoint printed: yes
+
+### Entry 8 — 2026-10-05 — M7 Report + one-command demo
+What I did: demo/figures.py (lineage_<scenario>.png coloured by verdict; metric_<scenario>.png deviation before/after replay with the monitor
+threshold band; the s4 control shows its four day-11 deviations), demo/findings.py (findings generated from the results, plus 8 fixed
+limitations), demo/report.py (self-contained HTML, jinja2, images embedded, no network), demo/run_demo.py (seed 42 live, held-out read
+from results/incidents.jsonl with a warning if missing or made with different configs), tests/test_demo.py.
+Commands run (exact) and result (real output, trimmed):
+- `.\.venv312\Scripts\python.exe demo/run_demo.py` -> "Finished in 31.6 s (limit 120 s)" (second run 31.4 s); offline. outputs/ holds demo_report.html
+  (about 495 KB, 0 external URLs), 6 lineage_*.png, 6 metric_*.png, snapshots.csv, lineage_edges.csv, replay_verdicts.csv (all with source=synthetic),
+  and the console prints the summary table with the four groups kept apart.
+- `.\.venv312\Scripts\python.exe -m pytest` -> "52 passed in 106.49s"; `.\.venv312\Scripts\ruff.exe check .` -> "All checks passed!"
+Problems and how I fixed them:
+- Metric figure: legend covered a bar label and the y-axis clipped a bar; fixed (padding, legend below), checked by looking at the PNG.
+- ruff ISC004 on the limitations list; wrapped each string in parentheses.
+- Test isolation bug: test_demo's run_demo built and then deleted seed-42 Delta folders in the SAME warehouse folder as the session-wide
+  `runs` fixture, which made a later test fail with TableNotFoundError. The demo tests now use their own warehouse folder.
+- A wording bug in the findings ("capitalize()" would lowercase table names; "blames None"): fixed.
+Decisions (and why): the demo does not run the held-out seeds (about 3 minutes, over the 120 s budget); it shows the cached results of
+`python -m runners.run_all` and says clearly if they are missing or stale. Per-incident compute time is reported only.
+Honest notes: s6 is not reproducible between runs even with the same seed (its anomalous run is unseeded on purpose). In the
+M6 grid, seed-42 s6 gave raw_customers CONFIRMED (replay top-1 correct, boundary group 2/2); in the two demo runs of this session the
+raw_customers replay was INCONCLUSIVE at least once (replay abstained, boundary group 1/2). So the seed42_boundary row printed by the
+demo can differ from the seed42 rows stored in results/incidents.jsonl. This is by design and is stated in the report findings.
+Next: M8 (quality gate: pytest, ruff, README quick start from a clean clone, held-out reported separately).
+Git checkpoint printed: yes
