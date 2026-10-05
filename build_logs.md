@@ -318,3 +318,14 @@ B3 was run on them once, after being implemented, with nothing tuned. (4) The fi
 latest; both runs are reported in docs/VIVA_NOTES.md.
 Next: nothing demo-critical is open. Remaining stretch items (Iceberg adapter S1, Marquez S2, TPC-H DAG plan S4) are not started; ask the user first.
 Git checkpoint printed: yes
+
+### Entry 12 — 2026-10-05 — S4 (stretch, chosen by the user): Semester 5-8 plan
+What I did: wrote docs/SEM5_PLAN.md (plan only; no code, no installs, no downloads, no new results). It lists the weak spots our own runs exposed
+(narrow alarms in s2 and s5, rollback masking in s5, weak noise detection in s6, small DAG, held-out seeds not types, no sensitivity or full-scale cost),
+nine work packages (WP-A to WP-I) mapped onto the proposal's semesters, the stretch backlog with decisions, risks and the rules that stay in force.
+Commands run (exact) and result: none besides writing the file; no tests were affected (docs only).
+Decisions (and why): all times and sizes in the plan are marked as estimates. The TPC-H data generation through DuckDB's tpch extension needs a download, so the
+plan says to ask before doing it. The plan quotes only facts already in this repo or in the proposal; TPC-H's eight table names are general knowledge, not a result.
+Honest notes: nothing in the plan has been tried; WP-C (multi-cause replay) may not fix s5, and a bigger DAG may show no advantage over the distance rule.
+Next: nothing demo-critical is open. S1 (Iceberg) and S2 (Marquez) remain, each needs the user's go-ahead (and an install or image download).
+Git checkpoint printed: yes
