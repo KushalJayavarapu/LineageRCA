@@ -1,0 +1,51 @@
+# SYNTHETIC fault scenarios with ground truth. Magnitudes are fixed here BEFORE any held-out seed is run.
+# Do not change a magnitude after seeing results just to make a method look better; log the change and why instead.
+incident_day: 11            # days 1-10 are healthy; day 11 is the incident day
+decoy_pct: 0.01             # benign decoy: day-11 FX rates (EUR, GBP) move by 1%, normal variation
+bad_join_key_fraction: 0.30 # s1/s5/s6: this share of customer ids loses its case, so the join drops about that share of orders
+type_coercion_fraction: 0.40 # s3: this share of day-11 amounts switches to a decimal comma ('12,34'), which casts to NULL
+
+# steps run in order, as change commits after the healthy day-11 run; then the pipeline re-runs day 11 (the anomalous run)
+# using the deployed code versions.
+scenarios:
+  s1_bad_join_key:
+    description: customer ids lose their case in raw_customers, the join drops orders; a benign FX refresh comes AFTER the fault
+    steps: [bad_join_key, decoy]
+    true_causes: [raw_customers]
+    decoy_tables: [raw_fx_rates]
+    expect_alarm: true
+  s2_dropped_filter:
+    description: the cancelled/test filter is removed from the clean step (a code fault); a benign FX refresh comes AFTER it
+    steps: [dropped_filter, decoy]
+    deployed_clean: clean_v2_no_filter
+    true_causes: [cleaned_orders]
+    decoy_tables: [raw_fx_rates]
+    expect_alarm: true
+  s3_type_coercion_latest:
+    description: raw_orders amounts switch format and cast to NULL; the fault is the LATEST change (decoy comes before)
+    steps: [decoy, type_coercion]
+    true_causes: [raw_orders]
+    decoy_tables: [raw_fx_rates]
+    expect_alarm: true
+  s4_control_no_fault:
+    description: control, no fault; only the benign FX refresh. The monitor must stay silent
+    steps: [decoy]
+    true_causes: []
+    decoy_tables: [raw_fx_rates]
+    expect_alarm: false
+  s5_two_causes:
+    description: boundary, s1 and s2 faults together; the decoy comes after
+    steps: [bad_join_key, dropped_filter, decoy]
+    deployed_clean: clean_v2_no_filter
+    true_causes: [raw_customers, cleaned_orders]
+    decoy_tables: [raw_fx_rates]
+    expect_alarm: true
+    boundary: true
+  s6_nondeterministic_transform:
+    description: boundary, the aggregate step samples a random 90% of rows with no seed, plus the s1 fault
+    steps: [bad_join_key, decoy]
+    deployed_aggregate: aggregate_v2_sample
+    true_causes: [raw_customers]
+    decoy_tables: [raw_fx_rates]
+    expect_alarm: true
+    boundary: true

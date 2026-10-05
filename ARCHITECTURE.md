@@ -174,6 +174,9 @@ scenarios and are reported separately from s1-s4.
 - **s2 suspects.** `raw_orders` has no change commit in s2, so it is not shortlisted; the denied suspect is the decoy `raw_fx_rates`.
 - **Suspects** come only from change commits (`change_type != normal_load`) after the day-D load; the pre-change snapshot is the
   version just before that commit.
-- **Incident start.** The investigation starts from the most downstream anomalous table (`daily_revenue_agg` first), so that
-  `cleaned_orders` stays a possible suspect.
+- **Incident start.** The investigation starts from the most downstream anomalous table (`daily_revenue_agg` first) and replay
+  must clear the metric that alarmed. The anomalous table itself is a suspect when it has its own change commit: in s2 only the
+  `cleaned_orders` row-count check alarms (revenue is +0.1458, just under 0.15), so the incident starts ON `cleaned_orders`, which
+  is also the true cause. Rolling a suspect table back to its pre-change snapshot is then the replay (no stage re-run if the suspect
+  is the anomalous table).
 - **Unparseable amounts** are kept with `amount = NULL` (visible in the null rate) instead of being dropped.

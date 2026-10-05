@@ -3,10 +3,10 @@
 Claude Code: update this file at the end of every milestone (tick the box, add the date and one line). Order matters.
 Everything marked **[DEMO]** must be done before anything marked **[STRETCH]**.
 
-Last updated: 2026-10-05 (M3 done)
+Last updated: 2026-10-05 (M4 done)
 
 ## Current status
-- M0-M3 done. Next: M4.
+- M0-M4 done. Next: M5.
 - This is the BACKUP idea. The main idea (CascadeGuard) lives in a separate folder.
 
 ## Demo-critical milestones
@@ -15,7 +15,7 @@ Last updated: 2026-10-05 (M3 done)
 - [x] **M1 [DEMO] Core + Delta store** — `core/models.py`, `core/config.py` (+ `configs/*.yaml`), seeded RNG and logical clock, `adapters/delta_store.py` (write, read at version, history), `adapters/duck.py`. Tests: time travel returns old rows; content hash is stable. — done 2026-10-05: 9 tests pass, ruff clean.
 - [x] **M2 [DEMO] Pipeline + data generator** — `tasks/datagen.py`, `tasks/pipeline.py` (clean + aggregate as pure DuckDB SQL), 10 healthy days. Tests: determinism (same seed = same hashes), stages are pure. — done 2026-10-05: 16 tests pass, 10 healthy days in 3.59 s.
 - [x] **M3 [DEMO] Lineage + monitor** — `adapters/lineage_store.py` (runs record input/output snapshot ids), `drift/monitor.py`. Tests: silent on healthy days; fires on a hand-made fault. — done 2026-10-05: 23 tests pass, 0 false alarms on 10 healthy days.
-- [ ] **M4 [DEMO] Faults + scenarios** — `tasks/faults.py`, `tasks/s1..s6` with ground truth in `configs/scenarios.yaml`. Each scenario produces the final Delta tables and a JSONL log in `results/`.
+- [x] **M4 [DEMO] Faults + scenarios** — `tasks/faults.py`, `tasks/s1..s6` with ground truth in `configs/scenarios.yaml`. Each scenario produces the final Delta tables and a JSONL log in `results/`. — done 2026-10-05: 31 tests pass; s4 silent; s2 and s5 alarm only narrowly (see build_logs Entry 5).
 - [ ] **M5 [DEMO] Investigators** — `agents/shortlist.py`, `agents/replay.py` (pinned inputs, 3 repeats, CONFIRMED/DENIED/PARTIAL/INCONCLUSIVE), `agents/baselines.py` (B1 recency, B2 distance). Tests as in ARCHITECTURE section 11.
 - [ ] **M6 [DEMO] Metrics + runners** — `metrics/*`, `runners/run_scenario.py`, `runners/run_all.py` (demo seed 42 plus held-out seeds 1-5 reported separately). Log honestly what s5 and s6 do.
 - [ ] **M7 [DEMO] Report + one-command demo** — `outputs/` HTML + PNG + CSV tables, `demo/run_demo.py` (< 120 s, offline).

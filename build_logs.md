@@ -112,3 +112,35 @@ about 17-18% (my estimate from the generator's status mix, NOT yet measured); it
 without changing sizes to make it comfortable.
 Next: M4 (fault injectors and scenarios s1-s6).
 Git checkpoint printed: yes
+
+### Entry 5 — 2026-10-05 — M4 Faults + scenarios s1-s6
+What I did: configs/scenarios.yaml (six scenarios with steps, deployed code versions, ground truth; fault sizes fixed BEFORE running:
+decoy 1%, bad_join_key 30% of customers, type_coercion 40% of day-11 amounts), tasks/faults.py (bad_join_key, type_coercion,
+benign_fx_refresh), tasks/scenarios.py (build_scenario returns IncidentContext = what investigators may see, and GroundTruth =
+scoring only, kept separate), run_logging/jsonl.py (JSONL log, logical times only, written to results/runs/, git-ignored),
+ScenarioSpec/ScenarioConfig in core/config.py, tests/test_scenarios.py. The dropped-filter fault is a code change: the clean step is
+re-run with code version clean_v2_no_filter and that commit on cleaned_orders is the change commit.
+Commands run (exact) and result (real output, trimmed):
+- Exploratory run of all six scenarios, seed 42, default size (2000 orders/day), about 4.1-4.9 s per scenario. Monitor results for day 11
+  (deviation vs the median of the previous 7 days; alarm if |relative| > 0.15, or null-rate increase > 0.05):
+  s1: row_count -0.2565, revenue_usd -0.2607 -> alarms on both; investigation starts on daily_revenue_agg.
+  s2: row_count +0.1653 (ALARM), revenue_usd +0.1458 (NO alarm, 0.0042 under the threshold) -> investigation starts on cleaned_orders.
+  s3: amount_null_rate +0.4291, revenue_usd -0.4204, row_count +0.0118 -> alarms on null rate and revenue.
+  s4: row_count +0.0094, revenue_usd -0.0039, null rates 0 -> monitor SILENT (as required).
+  s5: row_count -0.1435 (no alarm), revenue_usd -0.1516 (ALARM, 0.0016 over the threshold) -> investigation starts on daily_revenue_agg.
+  s6: row_count -0.2565, revenue_usd -0.3304 -> alarms on both (random 90% sample adds a bias and noise on top of the s1 fault).
+- `.\.venv312\Scripts\python.exe -m pytest` -> "31 passed in 51.36s"; `.\.venv312\Scripts\ruff.exe check .` -> "All checks passed!"
+Problems and how I fixed them: none in code. Findings below.
+Decisions (and why):
+- My Step-0/M3 estimate that s2 would move revenue by about 17-18% was WRONG (measured +14.58%; the fault adds cancelled/test orders but
+  the zero-amount filter and order mix reduce the effect). I did NOT change any magnitude or the threshold. The monitor still alarms
+  through the row-count check, so the incident is detected, but the investigation then starts on cleaned_orders, which is the true cause table
+  itself. Consequence for M5: the suspect set must include the anomalous table when it has its own change commit, and replay must clear the
+  metric that alarmed (row_count here). Written into ARCHITECTURE.md section 14.
+- s5 only just alarms (-0.1516 vs 0.15). Reported as is; it is a boundary scenario.
+Honest notes: detection of s2 and s5 depends on thresholds sitting a few thousandths away from the measured deviations. With another seed
+they may not alarm; the held-out seeds (M6) will show how often. A related effect to look for in M5: rolling back a downstream suspect table
+(cleaned_orders) to its pre-change snapshot also removes the effect of an upstream fault that was applied before it (s5), so a CONFIRMED
+verdict means "rolling THIS table back clears the metric", not "only this table is guilty".
+Next: M5 (shortlist, replay harness, baselines).
+Git checkpoint printed: yes

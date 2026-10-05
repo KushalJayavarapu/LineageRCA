@@ -93,7 +93,8 @@ class Monitor:
 def primary_anomaly(anomalies: list[Anomaly]) -> Anomaly | None:
     """The anomaly the investigation starts from: the one on the most downstream table (daily_revenue_agg first).
 
-    Starting downstream keeps every upstream table, including cleaned_orders, in the suspect list.
+    Its metric is the one replay must clear. The anomalous table itself is also a suspect if it has its own change
+    commit (a table can be corrupted by its own stage, as in s2), see agents/shortlist.py.
     """
     for table in ("daily_revenue_agg", "cleaned_orders"):
         for a in anomalies:

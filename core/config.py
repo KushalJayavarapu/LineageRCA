@@ -36,10 +36,30 @@ class ReplayConfig(BaseModel):
     shortlist_window_commits: int
 
 
+class ScenarioSpec(BaseModel):
+    description: str
+    steps: list[str]
+    true_causes: list[str]
+    decoy_tables: list[str]
+    expect_alarm: bool
+    deployed_clean: str = "clean_v1"
+    deployed_aggregate: str = "aggregate_v1"
+    boundary: bool = False
+
+
+class ScenarioConfig(BaseModel):
+    incident_day: int
+    decoy_pct: float
+    bad_join_key_fraction: float
+    type_coercion_fraction: float
+    scenarios: dict[str, ScenarioSpec]
+
+
 class Settings(BaseModel):
     pipeline: PipelineConfig
     monitor: MonitorConfig
     replay: ReplayConfig
+    scenarios: ScenarioConfig
     warehouse_dir: Path
     output_dir: Path
     results_dir: Path
@@ -77,6 +97,7 @@ def load_settings() -> Settings:
         pipeline=PipelineConfig(**pipeline),
         monitor=MonitorConfig(**monitor),
         replay=ReplayConfig(**replay),
+        scenarios=ScenarioConfig(**_read_yaml("scenarios.yaml")),
         warehouse_dir=warehouse,
         output_dir=ROOT / os.environ.get("OUTPUT_DIR", "outputs"),
         results_dir=ROOT / os.environ.get("RESULTS_DIR", "results"),
