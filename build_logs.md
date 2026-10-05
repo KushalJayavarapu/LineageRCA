@@ -144,3 +144,40 @@ they may not alarm; the held-out seeds (M6) will show how often. A related effec
 verdict means "rolling THIS table back clears the metric", not "only this table is guilty".
 Next: M5 (shortlist, replay harness, baselines).
 Git checkpoint printed: yes
+
+### Entry 6 — 2026-10-05 — M5 Investigators (shortlist, replay, baselines)
+What I did: agents/shortlist.py, agents/replay.py (rerun_once with pinned inputs and pinned code versions, decide_verdict,
+replay_suspect with 3 repeats, replay_all, top_suspect), agents/baselines.py (B1 recency, B2 distance), drift/monitor.py split into
+cleaned_metrics / revenue_metrics / metric_from_table so replay uses exactly the monitor's metrics and thresholds, tests/conftest.py
+(session-scoped scenario fixtures), tests/test_agents.py. Baselines documented in ARCHITECTURE.md section 15.
+Commands run (exact) and result (real output, trimmed):
+- Exploratory run on all six scenarios, seed 42 (before writing the assertions):
+  s1: suspects raw_customers, raw_fx_rates. raw_customers CONFIRMED (-0.261 -> -0.004); raw_fx_rates DENIED (-0.261 -> -0.263).
+      replay top-1 raw_customers (correct); B1 raw_fx_rates (wrong, the decoy); B2 raw_fx_rates (wrong, tie on distance, decoy more recent).
+  s2: incident starts on cleaned_orders (row_count). cleaned_orders CONFIRMED (+0.165 -> +0.009); raw_fx_rates DENIED (+0.165 -> +0.165).
+      replay correct; B1 wrong (decoy); B2 CORRECT (cleaned_orders is closer than the decoy). So B2 is not fooled in s2.
+  s3: raw_orders CONFIRMED (-0.420 -> -0.004); raw_fx_rates DENIED. Replay, B1 and B2 all pick raw_orders (fair comparison holds).
+  s4: monitor silent, no suspects, no investigation.
+  s5: cleaned_orders CONFIRMED (-0.152 -> -0.007); raw_customers CONFIRMED (-0.152 -> +0.146); raw_fx_rates DENIED. NOT PARTIAL as predicted.
+  s6: raw_customers CONFIRMED (-0.337 -> -0.102, spread 0.007); raw_fx_rates DENIED (spread 0.013). NOT INCONCLUSIVE as predicted.
+  Each replay of 3 repeats took about 0.07-0.18 s (reported only; it never influences a verdict).
+- `.\.venv312\Scripts\python.exe -m pytest` -> "42 passed in 55.20s"; `.\.venv312\Scripts\ruff.exe check .` -> "All checks passed!"
+Problems and how I fixed them: none in the logic. ruff flagged an import order (auto-fixed) and one RUF015 style nit in a test (fixed by hand).
+Decisions (and why): replay judges the metric that alarmed (revenue_usd or row_count) against the monitor threshold, so an incident
+and its replay are measured the same way. Replay recomputes only day D (partitions), keeping the baseline days from the live store.
+HONEST NOTES (kept as they are; nothing was tuned):
+1. s5 did NOT show PARTIAL. cleaned_orders was CONFIRMED because rolling back that table also drops the effect of the upstream customer
+   fault applied before it (rollback of a downstream table masks upstream causes). raw_customers was CONFIRMED only because, after undoing
+   it, the remaining dropped-filter fault leaves revenue at +0.146, which is 0.004 INSIDE the 0.15 threshold: the two faults roughly cancel
+   in the revenue metric. The verdict says "no alarm", not "healthy". This is a limit of judging by threshold; with a different
+   fault mix it would be PARTIAL or DENIED.
+2. s6 did NOT show INCONCLUSIVE. The unseeded 90% sample is a fairly mild noise source here: the spread of the 3 repeats was 0.007 and
+   0.013, under instability_tolerance 0.02 (fixed before any scenario ran). Replay's verdict happened to be right, but the replayed
+   deviation is -0.102 because the sample bias (about -10%) remains: the repeat check did not detect the non-determinism at all.
+   Also, s6 is not reproducible run to run: the anomalous run itself uses unseeded randomness, so its deviation was -0.323 in one build
+   and -0.337 in the next (same seed). That is the point of the scenario but it means s6 numbers differ between runs.
+3. A CONFIRMED verdict means "undoing THIS table's change clears the metric", not "this is the only guilty table" (see s5).
+4. In s2 B2 (distance) is not fooled: the true cause is the table closest to the anomaly. B1 (recency) is fooled in s1 and s2. This
+   weakens any claim that replay beats lineage-only: with this tiny DAG, B2 already ties replay in s2 and s3.
+Next: M6 (metrics + runners, demo seed 42 and held-out seeds 1-5).
+Git checkpoint printed: yes

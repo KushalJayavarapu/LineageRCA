@@ -36,19 +36,34 @@ def _day_number(order_date: str) -> int:
     return (date.fromisoformat(order_date) - START_DATE).days + 1
 
 
+def cleaned_metrics(cleaned: pa.Table) -> Metrics:
+    """The three metrics that live in cleaned_orders, for every day present."""
+    rows = query("SELECT order_date, COUNT(*) AS n, AVG(CASE WHEN amount IS NULL THEN 1.0 ELSE 0.0 END) AS an, "
+                 "AVG(CASE WHEN region IS NULL THEN 1.0 ELSE 0.0 END) AS rn FROM cleaned_orders GROUP BY order_date",
+                 cleaned_orders=cleaned).to_pylist()
+    return {
+        "row_count": {_day_number(r["order_date"]): float(r["n"]) for r in rows},
+        "amount_null_rate": {_day_number(r["order_date"]): float(r["an"]) for r in rows},
+        "region_null_rate": {_day_number(r["order_date"]): float(r["rn"]) for r in rows},
+    }
+
+
+def revenue_metrics(agg: pa.Table) -> Metrics:
+    """The revenue metric that lives in daily_revenue_agg, for every day present."""
+    rows = query("SELECT order_date, COALESCE(SUM(revenue_usd), 0) AS r FROM daily_revenue_agg GROUP BY order_date",
+                 daily_revenue_agg=agg).to_pylist()
+    return {"revenue_usd": {_day_number(r["order_date"]): float(r["r"]) for r in rows}}
+
+
 def day_metrics(cleaned: pa.Table, agg: pa.Table) -> Metrics:
     """All four metrics for every day present in the two tables."""
-    c = query("SELECT order_date, COUNT(*) AS n, AVG(CASE WHEN amount IS NULL THEN 1.0 ELSE 0.0 END) AS an, "
-              "AVG(CASE WHEN region IS NULL THEN 1.0 ELSE 0.0 END) AS rn FROM cleaned_orders GROUP BY order_date",
-              cleaned_orders=cleaned).to_pylist()
-    a = query("SELECT order_date, COALESCE(SUM(revenue_usd), 0) AS r FROM daily_revenue_agg GROUP BY order_date",
-              daily_revenue_agg=agg).to_pylist()
-    return {
-        "row_count": {_day_number(r["order_date"]): float(r["n"]) for r in c},
-        "amount_null_rate": {_day_number(r["order_date"]): float(r["an"]) for r in c},
-        "region_null_rate": {_day_number(r["order_date"]): float(r["rn"]) for r in c},
-        "revenue_usd": {_day_number(r["order_date"]): float(r["r"]) for r in a},
-    }
+    return {**cleaned_metrics(cleaned), **revenue_metrics(agg)}
+
+
+def metric_from_table(name: str, table: pa.Table, day: int) -> float:
+    """One metric of one day, computed from ONE table (used by replay on a replayed table)."""
+    metrics = revenue_metrics(table) if METRICS[name][0] == "daily_revenue_agg" else cleaned_metrics(table)
+    return metrics[name].get(day, 0.0)
 
 
 class Monitor:

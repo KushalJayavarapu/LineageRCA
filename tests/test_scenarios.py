@@ -1,26 +1,10 @@
 import dataclasses
 import json
 
-import pytest
-
-from core.config import load_settings
 from core.hashing import table_hash
 from tasks.scenarios import IncidentContext, build_scenario
 
 TABLES = ["raw_orders", "raw_customers", "raw_fx_rates", "cleaned_orders", "daily_revenue_agg"]
-
-
-@pytest.fixture(scope="module")
-def settings(tmp_path_factory):
-    wh = tmp_path_factory.mktemp("wh") / "lineagerca_warehouse"
-    return load_settings().model_copy(update={"warehouse_dir": wh, "results_dir": wh.parent / "results"})
-
-
-@pytest.fixture(scope="module")
-def runs(settings):
-    """Every scenario at the demo seed, built once (about 4-5 s each at the configured size)."""
-    return {sid: build_scenario(sid, 42, settings, log_dir=settings.results_dir / "runs")
-            for sid in settings.scenarios.scenarios}
 
 
 def changes(run):

@@ -180,3 +180,20 @@ scenarios and are reported separately from s1-s4.
   is also the true cause. Rolling a suspect table back to its pre-change snapshot is then the replay (no stage re-run if the suspect
   is the anomalous table).
 - **Unparseable amounts** are kept with `amount = NULL` (visible in the null rate) instead of being dropped.
+
+## 15. Exactly what each investigator does (as implemented in agents/)
+
+- **Shortlist (shared by all three):** suspects = the anomalous table itself plus every table upstream of it that has at least one
+  change commit (`change_type != normal_load`) after the last healthy run and within `shortlist_window_commits` commits of the anomaly.
+  Pre-change snapshot = the version just before that table's FIRST change commit in the window.
+- **Replay:** reads the suspect at its pre-change snapshot; re-runs only the stages on the path from the suspect to the anomalous table;
+  every other input is read at the snapshot the anomalous run used and every stage uses the code version that run used; repeats
+  `replay_repeats` times; judges the metric that alarmed with the monitor's own threshold. Verdict order: INCONCLUSIVE if the repeats
+  differ by more than `instability_tolerance`; else CONFIRMED if the metric is back inside the threshold; else PARTIAL if the deviation
+  fell by at least `partial_min_reduction`; else DENIED. Replay's single blame (`top_suspect`): CONFIRMED before PARTIAL, then the biggest
+  deviation reduction, then the smallest remaining deviation, then table name; no blame if everything is DENIED or INCONCLUSIVE.
+- **B1 lineage_recency:** among the shortlisted suspects, blame the one with the most recent change commit (ties: table name).
+- **B2 lineage_distance:** blame the suspect closest to the anomalous table in the lineage graph (distance 0 = the anomalous table
+  itself); ties go to the most recent change, then table name.
+- Both baselines see exactly the same shortlist as replay, use no re-execution, and never see ground truth. They are the strongest
+  simple lineage-only rules we can defend; a baseline that looked at the size of each table's change would need data access and is out of scope.
