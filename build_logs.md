@@ -329,3 +329,13 @@ plan says to ask before doing it. The plan quotes only facts already in this rep
 Honest notes: nothing in the plan has been tried; WP-C (multi-cause replay) may not fix s5, and a bigger DAG may show no advantage over the distance rule.
 Next: nothing demo-critical is open. S1 (Iceberg) and S2 (Marquez) remain, each needs the user's go-ahead (and an install or image download).
 Git checkpoint printed: yes
+
+### Entry 13 — 2026-10-05 — Final consistency review (no code changed)
+What I did: checked docs/VIVA_NOTES.md section 3 against results/summary.csv programmatically (all four group rows match, including the B3 column);
+found one stale line in ARCHITECTURE.md (the s2 row still said replay DENIES raw_orders, which contradicts section 14) and fixed it; marked the s5 and s6
+rows as "expectation written before the runs; see build_logs for what happened". Looked up (metadata query only, nothing installed or downloaded) the size
+of pyiceberg for the optional S1 item: the wheels listed on PyPI are under 1 MB each (pyiceberg 0.12.0), with about a dozen small Python dependencies; I did
+not compute the total. Docker image sizes for Marquez (S2) were NOT checked.
+Commands run: a verification script (OK on all four rows); one `curl` GET of the PyPI JSON metadata.
+Next: nothing demo-critical open. S1 and S2 need the user's go-ahead.
+Git checkpoint printed: yes

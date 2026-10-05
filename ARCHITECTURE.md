@@ -103,12 +103,13 @@ Each scenario: a healthy history (days 1-10), day-11 load, then change commits. 
 | Id | Name | What goes wrong | True cause table | Decoy | What a correct system does |
 | --- | --- | --- | --- | --- | --- |
 | s1 | `bad_join_key` | `raw_customers.customer_id` loses its prefix/case so the join drops about 30% of orders | `raw_customers` | after (most recent) | replay CONFIRMS `raw_customers`, DENIES the decoy; B1 blames the decoy |
-| s2 | `dropped_filter` | the `cancelled`/test-order filter is removed from the `cleaned_orders` step, so extra rows flow in | `cleaned_orders` | after | replay CONFIRMS `cleaned_orders`, DENIES `raw_orders`; B1 blames the decoy |
+| s2 | `dropped_filter` | the `cancelled`/test-order filter is removed from the `cleaned_orders` step, so extra rows flow in | `cleaned_orders` | after | replay CONFIRMS `cleaned_orders`, DENIES the decoy `raw_fx_rates` (`raw_orders` has no change commit, so it is not a suspect); B1 blames the decoy |
 | s3 | `type_coercion_latest` | `raw_orders.amount` switches format (e.g. `1,234.50` strings), cast silently gives nulls/zeros | `raw_orders` | before (fault is the most recent change) | replay CONFIRMS `raw_orders`; B1 and B2 also succeed (fair comparison, shows replay does not "win" by construction) |
 | s4 | `control_no_fault` | only the benign decoy; metrics stay in range | none | before | monitor stays silent, no investigation |
-| s5 | `two_causes` | s1 and s2 faults together | `raw_customers` AND `cleaned_orders` | after | each replay alone only reduces the deviation: expected PARTIAL for both (boundary test, report what happens) |
-| s6 | `nondeterministic_transform` | a downstream step uses a random 90% sample (unseeded), plus a real fault as in s1 | `raw_customers` | after | replay repeats disagree: expected INCONCLUSIVE. This is the known breaking point (research question 2); show it, do not hide it |
+| s5 | `two_causes` | s1 and s2 faults together | `raw_customers` AND `cleaned_orders` | after | each replay alone only reduces the deviation: expected PARTIAL for both (boundary test, report what happens) (what actually happened: see section 14 and build_logs.md Entries 6, 7, 11) |
+| s6 | `nondeterministic_transform` | a downstream step uses a random 90% sample (unseeded), plus a real fault as in s1 | `raw_customers` | after | replay repeats disagree: expected INCONCLUSIVE. This is the known breaking point (research question 2); show it, do not hide it (what actually happened: see build_logs.md Entries 6, 7, 11; s6 differs between runs) |
 
+The expectations in the table above were written BEFORE the runs; where reality differed (s2 detection margin, s5, s6) the real results are in section 14 and `build_logs.md`.
 Fault magnitudes and the monitor threshold are fixed in config BEFORE running held-out seeds. s5 and s6 are the "boundary"
 scenarios and are reported separately from s1-s4.
 
