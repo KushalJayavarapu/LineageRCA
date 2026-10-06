@@ -67,7 +67,7 @@ def run_demo(settings: Settings, out_dir: Path | None = None, seed: int = DEMO_S
     write_csvs(outcomes, out_dir, seed)
     heldout, note = load_heldout(settings)
     descriptions = {sid: spec.description for sid, spec in settings.scenarios.scenarios.items()}
-    html = render_report(outcomes, descriptions, out_dir, heldout, note, config_hash(), seed)
+    html = render_report(outcomes, descriptions, out_dir, heldout, note, config_hash(), seed, settings)
     (out_dir / "demo_report.html").write_text(html, encoding="utf-8")
 
     from rich.console import Console  # the demo may print; library code may not

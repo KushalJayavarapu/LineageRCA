@@ -339,3 +339,48 @@ not compute the total. Docker image sizes for Marquez (S2) were NOT checked.
 Commands run: a verification script (OK on all four rows); one `curl` GET of the PyPI JSON metadata.
 Next: nothing demo-critical open. S1 and S2 need the user's go-ahead.
 Git checkpoint printed: yes
+
+### Entry 14 — 2026-10-05 — M7b Front end: neo-brutalist report (front end only)
+What I did: restyled outputs/demo_report.html using the CascadeGuard-style neo-brutalist reference in ../docs (read-only; style and component patterns only, none of its text,
+names or numbers). New files: demo/report.css (shared tokens, .mark, .tag, .btn, .card, step cards, stacked tables), demo/report.js (replay panel), demo/report_template.html,
+demo/report_data.py (page data and the JSON block, formatted in Python so the browser never rounds). Edited: demo/report.py (loads the files, inlines CSS and JS), demo/run_demo.py
+(passes settings), demo/findings.py (typo fix), tests/test_demo.py, docs/DEMO_SCRIPT.md (the s1 step now uses the replay panel), PROGRESS.md (M7b). NO pipeline, monitor, replay,
+baseline, metric, threshold, size or fault logic was changed.
+Page contents: always-visible banner "SYNTHETIC DATA - real Delta time-travel replay - not a production pipeline"; header with wordmark and black pill; hero with one coral word
+and two buttons; "seed 42 at a glance" card (boundary scenarios included); old question vs new question; "Read this first" box; seed-42 summary table; generated findings (text
+unchanged); held-out group table and held-out per-scenario table, kept apart from seed 42; the replay panel (scenario tabs, inline SVG lineage graph, bar chart of deviations with the
+threshold band, play/pause, keyboard-operable scrubber, step readout: anomaly -> suspects -> each replay with verdict tag -> result); one card per scenario with the method comparison
+(replay, B1, B2, B3), the verdict table with the run's own explanation strings, B3 notes and the static PNG figures in a collapsed section; five step cards for the pipeline stages;
+Limitations in a bordered card.
+Commands run (exact) and result (real output, trimmed):
+- `.\.venv312\Scripts\python.exe demo/run_demo.py` -> "Finished in 63.6 s", 66.8 s, 66.8 s, 64.6 s on four runs (limit 120 s). SEE HONEST NOTE 1 about why this is about double the earlier 31 s.
+- Independent number check (script in the scratchpad, not in the repo): replay_verdicts.csv (11 rows) vs the page's JSON block: exact floats, verdict, snapshot id and explanation
+  equal for 11/11; the page text equals the CSV rounded to 3 decimals for 11/11; held-out group table equals results/summary.csv; held-out per-scenario table equals a fresh recount of
+  results/incidents.jsonl; the "at a glance" counts equal a recount from the JSON; banner present; no external URLs. Result: "ALL MATCH".
+- Overflow (test copy of the page with a measuring script): width 390 px (iframe): scrollWidth 375 with the scrollbar, no element wider than the viewport; width 1280: 1247 of 1262, none.
+- Scripted interaction (test copy, virtual time): nothing moved after 4 s without a click (autoplay absent); click on Play -> "Pause", aria-pressed true, advanced to step 3 of 5; second click
+  -> "Play" and the step stayed put; scrubber to the end -> "Step 5 of 5: result"; switching tab -> s4 at step 1 of 2. Page also loads with the reduced-motion flag.
+- `.\.venv312\Scripts\ruff.exe check .` -> "All checks passed!"; `pytest` -> 63 passed in 366.65 s (earlier runs of the same suite took about 115 s, see honest note 1).
+- Screenshots: outputs/screens/ (24 PNG files, 390 px and 1280 px: hero, findings, held-out, replay panel for s1, s4, s5, s6, scenario cards, how, limitations). Taken with the already-installed
+  Chrome in headless mode (no Playwright, nothing installed). Chrome's headless window cannot be narrower than 500 px, so the 390 px views are the page inside a 390 px wide iframe.
+Visual problems found and fixed: (1) the threshold caption collided with a bar value label -> moved to its own line; (2) long bar labels were cut off -> up to four lines; (3) suspect
+names and verdict tags wrapped in the middle of a word -> no-wrap cells; (4) the three arrowheads into cleaned_orders overlapped -> spread along the edge; (5) the "warning" emphasis on
+findings was inverted (it marked baselines being WRONG, which favours replay) -> it now marks what is awkward for the method: a tie with the baselines, a baseline being right,
+a monitor miss, masking, run-to-run randomness, PARTIAL or INCONCLUSIVE; (6) the Limitations text had a stray space "lineage- distance" from my own earlier text wrapping -> fixed
+(this was a typo in demo/findings.py, the meaning is unchanged).
+Decisions (and why): headline word is "Test", not "prove": "prove" would overstate it (s5 shows that a CONFIRMED verdict can come from rollback masking). B3 (BugDoc-style) is shown as a fourth
+method next to B1 and B2: leaving it out would be selective. Only deviations are drawn: observed and expected values exist for the anomalous run (from the monitor's Anomaly), but a replay
+emits only its deviation, not the replayed absolute value; I did not derive new numbers.
+Honest notes / things in the report that look off:
+1. Speed: the demo now takes about 65 s (it took about 31 s earlier today) and the test suite about 6 min (about 2 min before). The report rendering itself takes 0.37 s; the extra time is in
+   scenario runs and Delta reads and writes (profiled: replay of one scenario 1.56 s vs 0.18 s earlier, with unchanged code). CPU load was about 2% and the warehouse folder is small. I could not
+   find the cause (Windows real-time protection is on, but it was on before); it is machine-level, not the front end. Still inside the 120 s limit.
+2. s6 differs between runs. In the last demo run the seed-42 boundary row shows replay 1/2 (it abstained on s6, INCONCLUSIVE), while results/incidents.jsonl (made by run_all) has seed-42 rows from
+   another run. The held-out tables come from the cached run_all results, so they can disagree with the live seed-42 row for s6. The report says so in its findings.
+3. s5 shows raw_customers CONFIRMED at deviation +0.146 (just inside the 0.15 band) in the chart: it is "no alarm", not "healthy". That is the honest picture and it is visible.
+4. Some replay explanation strings read oddly, for example "reduced by only -0%" or "-2%" for a DENIED verdict where the deviation did not go down. These strings come from agents/replay.py and
+   are shown unchanged; I did not touch them. Consider changing the wording in a separate, logic-adjacent task.
+5. The 4 "boundary" held-out numbers (replay 9/9) come from one run of the random s6; see Entry 11.
+6. If absolute replayed metric values are wanted in the chart, the pipeline would have to emit them (for example a `value_after` field on ReplayVerdict); proposed, not done.
+Next: nothing demo-critical open. S1 (Iceberg) and S2 (Marquez) still need the user's go-ahead.
+Git checkpoint printed: yes

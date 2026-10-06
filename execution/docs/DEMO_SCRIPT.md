@@ -27,7 +27,7 @@ FX-rate refresh happens, so the most recent change is NOT the cause. The monitor
 (deviation -0.261 against a 0.15 threshold). Two suspects are shortlisted: `raw_customers` and `raw_fx_rates`.
 The lineage-recency baseline blames the most recent change, the FX refresh: wrong. Replay rolls each suspect back and re-runs:
 with customers rolled back the deviation falls to -0.004, so CONFIRMED; with the FX table rolled back it stays at -0.263, so DENIED."
-*(Open `outputs/demo_report.html`, scroll to the s1 card: the lineage picture colours `raw_customers` as CONFIRMED and `raw_fx_rates` as DENIED.)*
+*(Open `outputs/demo_report.html`, go to the replay panel, pick s1 and press play or drag the slider: the graph colours `raw_customers` CONFIRMED and `raw_fx_rates` DENIED, and the bars show the deviation before and after each replay. Nothing plays by itself.)*
 
 ## 1:30 - 2:00  Fair comparison and the control
 "We also built scenarios where we do NOT win by construction. In s3 the fault is the most recent change, so replay and both

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LineageRCA demo report (SYNTHETIC)</title>
+<style>{{ css|safe }}</style></head><body>
+{% macro verdict(m) %}<span class="tag {{ 'tag--green' if m.correct else 'tag--coral' }}">{{ 'right' if m.correct else 'wrong' }}</span>{% endmacro %}
+<div class="banner" role="note">SYNTHETIC DATA - real Delta time-travel replay - not a production pipeline</div>
+<header class="site-header"><div class="site-header-inner">
+  <span class="wordmark">LineageRCA</span>
+  <span class="tag tag--black pill">BACKUP IDEA DEMO</span>
+</div></header>
+<main>
+
+<div class="hero">
+  <div>
+    <span class="tag tag--yellow">Counterfactual replay for pipeline root causes · SYNTHETIC</span>
+    <h1 style="margin-top:14px">Don't guess which table broke. <mark class="mark">Test</mark> it.</h1>
+    <p class="lead">When a data-quality alarm fires, LineageRCA replays the downstream steps on the suspect table's earlier snapshot and checks whether the anomaly disappears.</p>
+    <p class="note">Demo seed {{ seed }}; held-out seeds 1-5 are reported separately. Config fingerprint <code>{{ cfg_hash }}</code>.</p>
+    <div class="row">
+      <a class="btn btn--primary" href="#findings">See findings</a>
+      <a class="btn" href="#scenarios">See scenarios</a>
+    </div>
+  </div>
+  <div class="card glance">
+    <div class="row between"><span class="tag tag--yellow">Seed {{ seed }} at a glance</span><span class="tag">synthetic</span></div>
+    <hr>
+    {% for g in glance %}<p><b>{{ 'Main scenarios (s1-s4)' if g.group.endswith('main') else 'Boundary scenarios (s5, s6)' }}</b><br>
+      Monitor alarms on {{ g.detected }} of {{ g.faulty }} faulty runs. Top-1 correct: replay {{ g.top1_replay_n }}/{{ g.investigated }},
+      B1 {{ g.top1_b1_n }}/{{ g.investigated }}, B2 {{ g.top1_b2_n }}/{{ g.investigated }}, B3 {{ g.top1_b3_n }}/{{ g.investigated }}.
+      False confirms {{ g.false_confirms }}/{{ g.non_cause_suspects }}.{% if g.control_incidents %} Control false alarms {{ g.control_false_alarms }}/{{ g.control_incidents }}.{% endif %}</p>{% endfor %}
+    <p class="note">One run per scenario. We wrote the faults and the method, so this is partly circular (see Limitations).</p>
+  </div>
+</div>
+
+<div class="compare-q">
+  <div><span class="tag">The old question</span>
+    <div class="quote"><span class="strike">Which upstream table changed most recently?</span></div>
+    <p class="note">A guess. Two things happened near each other; nothing was re-run to check.</p></div>
+  <div><span class="tag tag--black">The new question</span>
+    <div class="quote">If this table had not changed, would the problem still happen?</div>
+    <p class="note" style="color:var(--ink)">A test. Roll the suspect back to its earlier snapshot, re-run the downstream steps, and look.</p></div>
+</div>
+
+<div class="read-first" role="note"><span class="tag tag--black">Read this first</span>
+  <p style="margin-top:12px">The data and the injected faults are <b>SYNTHETIC</b> and written by us. The time travel (Delta Lake snapshots) and the re-execution (DuckDB) are real.
+  We wrote the faults, the decoys and the method, so the evaluation is partly circular: it shows that the mechanism works for pure, deterministic batch
+  transforms on a five-table toy pipeline, not how often it works on real pipelines. Held-out seeds change the random data, not the types of fault.
+  Thresholds are fixed in <code>configs/</code> before the held-out run. Where results are awkward (s2, s5, s6, ties with the baselines) they are shown below as they came out.</p></div>
+
+<section id="findings">
+  <span class="tag tag--yellow">Findings · demo seed {{ seed }}</span>
+  <h2 style="margin-top:12px">What the run <mark class="mark">showed</mark></h2>
+  <h3 class="sub-h">1. Summary, demo seed {{ seed }} (one run per scenario)</h3>
+  <div class="card table-card"><table class="data">
+    <thead><tr><th>Scenario</th><th>Ground truth (scoring only)</th><th>Monitor</th><th>Replay blames</th><th>B1 recency</th><th>B2 distance</th><th>B3 param replay</th><th>Replay s</th></tr></thead>
+    <tbody>{% for sc in scenarios %}<tr>
+      <td data-label="Scenario"><span class="nb">{{ sc.id }}</span>{% if sc.boundary %} <span class="tag tag--coral">boundary</span>{% endif %}</td>
+      <td data-label="Ground truth">{{ sc.truth|join(', ') or 'none' }}</td>
+      <td data-label="Monitor">{{ sc.monitor_text }}</td>
+      {% for m in sc.methods %}<td data-label="{{ ['Replay','B1','B2','B3'][loop.index0] }}">{{ m.blame }} {{ verdict(m) }}</td>{% endfor %}
+      <td data-label="Replay s" class="num">{{ sc.replay_seconds }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="note" style="margin-top:10px">"nobody" means that method blamed no table: right for the control, wrong when there is a cause. B3 is a BugDoc-style baseline that varies stage code versions instead of snapshots. Scored per incident, never pooled.</p>
+
+  <h3 class="sub-h">2. Findings (generated from the runs)</h3>
+  <ul class="findings">{% for f in findings %}<li class="{{ 'warn' if f.warn else '' }}">{{ f.text }}</li>{% endfor %}</ul>
+
+  <h3 class="sub-h" id="heldout">3. Held-out seeds 1-5 (reported separately from seed {{ seed }})</h3>
+  {% if heldout_rows %}<div class="card table-card"><table class="data">
+    <thead><tr><th>Group</th><th>Monitor detected</th><th>Top-1 replay</th><th>Top-1 B1</th><th>Top-1 B2</th><th>Top-1 B3</th><th>False confirms</th><th>Control false alarms</th></tr></thead>
+    <tbody>{% for g in heldout_rows %}<tr><td data-label="Group">{{ g.group }}</td><td data-label="Detected" class="num">{{ g.detected }}/{{ g.faulty }}</td>
+      <td data-label="Replay" class="num">{{ g.top1_replay_n }}/{{ g.investigated }}</td><td data-label="B1" class="num">{{ g.top1_b1_n }}/{{ g.investigated }}</td>
+      <td data-label="B2" class="num">{{ g.top1_b2_n }}/{{ g.investigated }}</td><td data-label="B3" class="num">{{ g.top1_b3_n }}/{{ g.investigated }}</td>
+      <td data-label="False confirms" class="num">{{ g.false_confirms }}/{{ g.non_cause_suspects }}</td>
+      <td data-label="Control alarms" class="num">{{ g.control_false_alarms }}/{{ g.control_incidents }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="note" style="margin-top:10px">Top-1 is counted over the faulty incidents the monitor detected; detection is shown beside it.</p>
+  <h3 class="sub-h">4. Held-out seeds 1-5, per scenario</h3>
+  <div class="card table-card"><table class="data">
+    <thead><tr><th>Scenario</th><th>Monitor alarms</th><th>Replay right</th><th>B1 right</th><th>B2 right</th><th>B3 right</th></tr></thead>
+    <tbody>{% for h in heldout_scen %}<tr><td data-label="Scenario"><span class="nb">{{ h.id }}</span>{% if h.boundary %} <span class="tag tag--coral">boundary</span>{% endif %}{% if h.control %} <span class="tag">control</span>{% endif %}</td>
+      <td data-label="Alarms" class="num">{{ h.alarms }}/{{ h.runs }}</td><td data-label="Replay" class="num">{{ h.replay }}/{{ h.n }}</td><td data-label="B1" class="num">{{ h.b1 }}/{{ h.n }}</td>
+      <td data-label="B2" class="num">{{ h.b2 }}/{{ h.n }}</td><td data-label="B3" class="num">{{ h.b3 }}/{{ h.n }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="note" style="margin-top:10px">For the control (s4) a "0/0" means the monitor correctly stayed silent, so nothing was investigated.</p>
+  {% if heldout_note %}<p class="card card--alert" style="margin-top:12px"><b>{{ heldout_note }}</b></p>{% endif %}
+  {% else %}<p class="card card--alert"><b>{{ heldout_note }}</b></p>{% endif %}
+</section>
+
+<section id="replay">
+  <span class="tag tag--yellow">Replay panel · synthetic</span>
+  <h2 style="margin-top:12px">Watch an investigation <mark class="mark">unfold</mark></h2>
+  <p>Pick a scenario, then press play or drag the slider. It steps through what the run recorded: the alarm, the suspects, each replay and its verdict. Nothing starts by itself.</p>
+  <noscript><p class="card card--alert">The interactive replay needs JavaScript. Every number it shows is also in the tables and scenario cards on this page.</p></noscript>
+  <div class="tabs" id="tabs" role="group" aria-label="Choose a scenario"></div>
+  <div class="card" id="replay-card">
+    <div class="replay-head"><span class="tag tag--yellow">SYNTHETIC · SEED {{ seed }}</span><span class="timer" id="step-label" aria-live="polite">step 1</span></div>
+    <h3 id="replay-title"></h3><p id="replay-desc"></p>
+    <div id="graph"></div>
+    <div id="bars"></div>
+    <div class="controls"><button class="btn btn--primary" id="play" type="button" aria-pressed="false">Play</button>
+      <input id="scrub" type="range" min="0" max="0" value="0" step="1" aria-label="Step through the investigation"></div>
+    <div class="readout" id="readout" aria-live="polite"></div>
+  </div>
+</section>
+
+<section id="scenarios">
+  <span class="tag tag--yellow">Scenarios · method comparison</span>
+  <h2 style="margin-top:12px">Who blamed <mark class="mark">which</mark> table</h2>
+  <p>One card per scenario, in the same layout, including the ones where the baselines tie or win. "Ground truth" is the injected cause, used only to score.</p>
+  {% for sc in scenarios %}<div class="card scenario-card" id="card-{{ sc.id }}">
+    <div class="row"><span class="tag tag--yellow">{{ sc.short }}</span>
+      {% if sc.boundary %}<span class="tag tag--coral">boundary scenario</span>{% endif %}
+      {% if not sc.truth %}<span class="tag">control: no fault</span>{% endif %}
+      {% if sc.all_agree %}<span class="tag tag--green">all three lineage and replay methods agree: fair-comparison case</span>{% endif %}</div>
+    <h3 style="margin-top:12px">{{ sc.id }}</h3><p>{{ sc.description }}</p>
+    <p><b>Monitor:</b> {{ sc.monitor_text }}. <b>Ground truth (scoring only):</b> {{ sc.truth|join(', ') or 'none' }}.
+      {% if sc.monitor %}Observed {{ sc.monitor.observed }}, expected {{ sc.monitor.expected }}, deviation {{ sc.monitor.deviation.s }} (threshold {{ sc.monitor.threshold.s }}).{% endif %}</p>
+    <h4 class="mono sub-h" style="font-size:13px;text-transform:uppercase">Method comparison</h4>
+    <div class="card table-card"><table class="data"><thead><tr><th>Method</th><th>Blames</th><th>Against ground truth</th></tr></thead>
+      <tbody>{% for m in sc.methods %}<tr><td data-label="Method">{{ m.name }}</td><td data-label="Blames" class="nb">{{ m.blame }}</td><td data-label="Against truth">{{ verdict(m) }}</td></tr>{% endfor %}</tbody></table></div>
+    {% if sc.verdicts %}<h4 class="mono sub-h" style="font-size:13px;text-transform:uppercase">Replay verdicts</h4>
+    <div class="card table-card"><table class="data"><thead><tr><th>Suspect</th><th>Pre-change snapshot</th><th>Verdict</th><th>Deviation before</th><th>Deviation after</th><th>Why</th></tr></thead>
+      <tbody>{% for v in sc.verdicts %}<tr><td data-label="Suspect" class="nb">{{ v.table }}</td><td data-label="Snapshot" class="num">{{ v.snapshot }}</td>
+        <td data-label="Verdict" class="nb"><span class="tag v-{{ v.verdict }}">{{ v.verdict }}</span></td><td data-label="Before" class="num" title="{{ v.before.v }}">{{ v.before.s }}</td>
+        <td data-label="After" class="num" title="{{ v.after.v }}">{{ v.after.s }}</td><td data-label="Why">{{ v.explanation }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p><b>No suspects were replayed:</b> the monitor raised no alarm, so no investigation started.</p>{% endif %}
+    {% if sc.b3_notes %}<p class="note"><b>B3 (parameter replay, BugDoc-style):</b> {{ sc.b3_notes|join(' | ') }}</p>{% endif %}
+    <details><summary>Static figures (PNG)</summary>
+      <img alt="Lineage graph for {{ sc.id }} coloured by replay verdict (synthetic)" src="data:image/png;base64,{{ sc.images.lineage }}">
+      <img alt="Deviation of the alarming metric before and after replay for {{ sc.id }} (synthetic)" src="data:image/png;base64,{{ sc.images.metric }}"></details>
+  </div>{% endfor %}
+</section>
+
+<section id="how">
+  <span class="tag tag--yellow">How a replay runs</span>
+  <h2 style="margin-top:12px">Five stages, <mark class="mark">no</mark> machine learning</h2>
+  <div class="steps">
+    <div class="step"><div class="badge b-yellow">01</div><h3>Pipeline and snapshots</h3><p>Delta tables on local disk; every commit is an immutable snapshot that can be read later. Synthetic orders, customers and exchange rates flow through two pure steps: clean, then daily revenue.</p></div>
+    <div class="step"><div class="badge b-blue">02</div><h3>Lineage capture</h3><p>One event per run records which snapshot of each input it read and which code version it used. That is what lets a replay pin everything except the suspect.</p></div>
+    <div class="step"><div class="badge b-coral">03</div><h3>Monitor</h3><p>Compares one day with the median of the previous days: row count, revenue and null rates. Plain thresholds, fixed in <code>configs/</code> before the held-out run.</p></div>
+    <div class="step"><div class="badge b-green">04</div><h3>Replay harness</h3><p>For each suspect: read it at the snapshot before its change, pin every other input and the code version, re-run only the steps downstream, repeat, then check whether the alarming metric is back inside the threshold.</p></div>
+    <div class="step"><div class="badge b-purple">05</div><h3>Verdict report</h3><p>CONFIRMED, DENIED, PARTIAL or INCONCLUSIVE per suspect, with the reason and the snapshot ids. Ground truth is read only afterwards, to score the verdicts.</p></div>
+  </div>
+</section>
+
+<section id="limitations">
+  <span class="tag tag--coral">Limitations</span>
+  <h2 style="margin-top:12px"><mark class="mark">Limitations</mark> you should know</h2>
+  <ul class="limits">{% for l in limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+</section>
+</main>
+<footer><div class="site-header-inner"><p class="note" style="margin:0">Files next to this page: <code>snapshots.csv</code>, <code>lineage_edges.csv</code>,
+<code>replay_verdicts.csv</code> (all with source=synthetic), <code>lineage_*.png</code>, <code>metric_*.png</code>. Offline page: no network requests.</p></div></footer>
+<script type="application/json" id="replay-data">{{ replay_json|safe }}</script>
+<script>{{ js|safe }}</script>
+</body></html>

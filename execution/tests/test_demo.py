@@ -1,4 +1,7 @@
 import csv
+import json
+import re
+from pathlib import Path
 
 import pytest
 
@@ -45,20 +48,58 @@ def test_findings_come_from_results_and_mention_failures_and_ties(runs, settings
     assert "CONFIRMED 2 of them" in text and "does not mean the other causes are innocent" in text   # s5 masking
 
 
-def test_report_is_self_contained_and_labelled_synthetic(small, tmp_path):
-    outcomes = [run_scenario(sid, 7, small) for sid in ("s1_bad_join_key", "s4_control_no_fault")]
+def _build_report(small, tmp_path, scenario_ids, seed=7):
+    outcomes = [run_scenario(sid, seed, small) for sid in scenario_ids]
     for o in outcomes:
         n = o.result.scenario_id
         lineage_figure(o, tmp_path / f"lineage_{n}.png")
-        metric_figure(o, tmp_path / f"metric_{n}.png", 0.15, 0.05)
+        metric_figure(o, tmp_path / f"metric_{n}.png", small.monitor.rel_threshold, small.monitor.null_rate_threshold)
     desc = {o.result.scenario_id: "d" for o in outcomes}
-    html = render_report(outcomes, desc, tmp_path, None, "Held-out results not found.", "abc123", 7)
-    assert "SYNTHETIC data, real time-travel replay" in html and "Read this first" in html and "Limitations" in html
-    assert "http://" not in html and "https://" not in html and "<script" not in html        # offline, no CDN
-    assert html.count("data:image/png;base64,") == 4 and "Held-out results not found." in html
-    assert all(lim[:30] in html for lim in LIMITATIONS)
+    html = render_report(outcomes, desc, tmp_path, None, "Held-out results not found.", "abc123", seed, small)
     for o in outcomes:
         o.run.context.store.remove()
+    return outcomes, html
+
+
+def test_report_keeps_the_honesty_content_and_is_offline(small, tmp_path):
+    ids = ("s1_bad_join_key", "s3_type_coercion_latest", "s4_control_no_fault", "s5_two_causes", "s6_nondeterministic_transform")
+    outcomes, html = _build_report(small, tmp_path, ids)
+    assert "SYNTHETIC DATA - real Delta time-travel replay - not a production pipeline" in html     # the always-visible banner
+    assert "Read this first" in html and 'id="limitations"' in html and "Limitations" in html
+    assert all(lim[:30] in html for lim in LIMITATIONS)
+    assert "CascadeGuard" not in html and "Attest" not in html                                      # no words from the style reference
+    assert "http://" not in html and "https://" not in html                                         # no external requests, no CDN
+    assert "@import" not in html and "url(" not in html.split("</style>")[0]                       # no fonts or images loaded by CSS
+    assert html.count("data:image/png;base64,") == 2 * len(outcomes) and "Held-out results not found." in html
+    assert "prefers-reduced-motion" in html and "aria-pressed" in html and "aria-valuetext" in html
+    # awkward results must be visible: any PARTIAL or INCONCLUSIVE verdict the boundary scenarios produced is on the page
+    produced = {v.verdict for o in outcomes if o.result.boundary for v in o.result.verdicts} & {"PARTIAL", "INCONCLUSIVE"}
+    for word in produced:
+        assert f'class="tag v-{word}"' in html
+    if not produced:                                  # s6 is random: this run produced neither, so the page must show what it did produce
+        assert 'class="tag v-CONFIRMED"' in html and 'class="tag v-DENIED"' in html
+
+
+def test_replay_data_matches_the_results_exactly_and_nothing_autoplays(small, tmp_path):
+    outcomes, html = _build_report(small, tmp_path, ("s1_bad_join_key", "s4_control_no_fault"))
+    data = json.loads(re.search(r'<script type="application/json" id="replay-data">(.*?)</script>', html, re.DOTALL).group(1))
+    for o, sc in zip(outcomes, data["scenarios"], strict=True):
+        r = o.result
+        assert sc["id"] == r.scenario_id and sc["alarm"] == r.alarm_raised and sc["truth"] == r.true_causes
+        assert [(v["table"], v["verdict"], v["before"]["v"], v["after"]["v"]) for v in sc["verdicts"]] ==             [(v.suspect_table, v.verdict, v.deviation_before, v.deviation_after) for v in r.verdicts]      # exact values, no rounding
+        assert [m["blame"] for m in sc["methods"]] == [x or "nobody" for x in (r.replay_top1, r.b1_blame, r.b2_blame, r.b3_blame)]
+    shown = [v["after"]["s"] for sc in data["scenarios"] for v in sc["verdicts"]]
+    assert shown and all(s in html for s in shown)                                                       # the text on the page
+    js = (Path(__file__).resolve().parents[1] / "demo" / "report.js").read_text(encoding="utf-8")
+    assert js.count("start()") == 2                    # only the definition and the click handler: play never starts by itself
+
+
+def test_emphasis_goes_on_what_is_awkward_for_the_method(small, tmp_path):
+    _, html = _build_report(small, tmp_path, ("s1_bad_join_key", "s3_type_coercion_latest"))
+    items = re.findall(r'<li class="(warn)?">(.*?)</li>', html, re.DOTALL)
+    s1 = next(css for css, text in items if text.startswith("s1_bad_join_key"))
+    s3 = next(css for css, text in items if text.startswith("s3_type_coercion_latest"))
+    assert s1 == "" and s3 == "warn"                  # a baseline failing is not a warning; a tie with the baselines is
 
 
 @pytest.mark.slow

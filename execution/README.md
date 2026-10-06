@@ -18,8 +18,25 @@ pip install -r requirements.txt -r requirements-dev.txt
 copy .env.example .env                    # only if .env is missing
 python scripts/check_env.py               # must say READY
 pytest -q
-python demo/run_demo.py                   # the demo; opens/writes outputs\demo_report.html
+ruff check .
+python demo/run_demo.py                   # the demo (about half a minute); writes outputs\demo_report.html
 ```
+
+Optional commands:
+
+```powershell
+python -m runners.run_scenario --scenario s1_bad_join_key --seed 42   # one scenario, one seed
+python -m runners.run_all                  # all scenarios, demo seed 42 + held-out seeds 1-5 (a few minutes);
+                                           # writes results\incidents.jsonl and results\summary.csv
+```
+
+## What you get
+
+`python demo/run_demo.py` runs the six SYNTHETIC scenarios for seed 42 and writes to `outputs\`: `demo_report.html`
+(self-contained, offline), `lineage_<scenario>.png`, `metric_<scenario>.png`, and the CSV tables `snapshots.csv`,
+`lineage_edges.csv`, `replay_verdicts.csv` (every row has `source=synthetic`). It also prints a summary table. The held-out
+seeds 1-5 are shown from `results\incidents.jsonl` (made by `run_all`) and are always reported separately from seed 42.
+The Delta tables are rebuilt from the seed on every run; nothing is downloaded.
 
 No Spark, no Java, no Docker, no network (after the packages are installed).
 The Delta tables are written to `WAREHOUSE_DIR` (see `.env`), outside OneDrive, and are regenerated on every run.

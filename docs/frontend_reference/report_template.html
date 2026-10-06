@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CascadeGuard demo report [SIMULATED]</title>
+<style>{{ css|safe }}
+.pill { border-radius: 999px; padding: 9px 16px; }</style></head><body>
+<div class="banner" role="note">SIMULATED RESULTS - produced by the CascadeGuard simulator, not by a real Kubernetes cluster</div>
+<header class="site-header"><div class="site-header-inner">
+  <span class="wordmark">CascadeGuard</span>
+  <span class="tag tag--black pill">SIMULATED DEMO</span>
+</div></header>
+<main>
+
+<div class="hero">
+  <div>
+    <span class="tag tag--yellow">Review 1 demo report · source=simulated</span>
+    <h1 style="margin-top:14px">Are your autoscalers in <mark class="mark">conflict</mark>?</h1>
+    <p class="lead">CascadeGuard watches what HPA, VPA and KEDA decide for the same workload and flags when those decisions
+    fight each other. Everything on this page comes from a simulator: demo seed {{ demo_seed }}, with held-out seeds {{ held_out_seeds }} reported separately.</p>
+    <div class="row">
+      <a class="btn btn--primary" href="#findings">See findings</a>
+      <a class="btn" href="#replay">Scenario replay</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row between"><span class="tag tag--yellow">Demo seed {{ demo_seed }}</span><span class="tag">simulated</span></div>
+    <hr style="margin:12px 0">
+    <p class="mono" style="color:var(--ink);margin:0 0 6px">Scenarios simulated: <b>{{ hero.n_scenarios }}</b></p>
+    <p class="mono" style="color:var(--ink);margin:0 0 6px">Conflict scenarios with ground truth: <b>{{ hero.n_conflict }}</b></p>
+    <p class="mono" style="color:var(--ink);margin:0 0 6px">Expected conflict type found: <b>{{ hero.n_found }} of {{ hero.n_conflict }}</b></p>
+    <p class="mono" style="color:var(--ink);margin:0 0 6px">Not found as expected: <b>{{ hero.not_found or "none" }}</b></p>
+    <p class="mono" style="color:var(--ink);margin:0">Control scenario false alarms: <b>{{ hero.control_alarms }}</b><span class="cursor" aria-hidden="true"></span></p>
+  </div>
+</div>
+
+<div class="compare-q">
+  <div><span class="tag">The usual question</span>
+    <div class="quote"><span class="strike">Is each autoscaler healthy?</span></div>
+    <p class="note">Each controller looks fine on its own metric, so nothing looks wrong until their actions collide.</p></div>
+  <div><span class="tag tag--black">The question we ask</span>
+    <div class="quote">Are the autoscalers fighting each other?</div>
+    <p class="note" style="color:var(--ink)">Read all three decisions on one timeline and flag opposing, alternating and cascading actions, with the reason.</p></div>
+</div>
+
+<div class="read-first" role="note"><span class="tag tag--black">Read this first</span>
+  <p style="margin-top:12px">The simulator contains the controller behaviour we modelled (HPA, VPA, KEDA, Kafka rebalance). A conflict appears only if that
+  modelled behaviour produces it. These results are a <b>mechanism demonstration</b>, not evidence that the same thing happens, or how often, on real clusters.
+  We wrote both the scenarios and the detectors, so the held-out seeds below are a sanity check, not independent proof.
+  All parameters are documented defaults or marked "assumption" in <code>configs/controllers.yaml</code>; none were tuned to make a conflict appear.</p></div>
+
+<section id="findings">
+  <span class="tag tag--yellow">Findings · demo seed {{ demo_seed }}</span>
+  <h2 style="margin-top:12px">What the simulator <mark class="mark">showed</mark></h2>
+  <h3>1. Summary (demo seed {{ demo_seed }})</h3>
+  <div class="card table-card"><table class="data">
+    <thead><tr><th>Scenario</th><th>Ground truth</th><th>Flags</th><th>Detectors that flagged</th><th>Expected type found</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td data-label="Scenario">{{ r.id }}</td><td data-label="Ground truth">{{ r.truth }}</td><td data-label="Flags" class="num">{{ r.flags }}</td>
+    <td data-label="Detectors">{{ r.methods }}</td><td data-label="Expected type found">{{ r.exact }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="note" style="margin-top:20px"><span class="tag tag--coral">Read the scores with care</span> Precision, recall and F1 count a flag as correct when its time window overlaps the ground truth, <b>whatever its type</b>. A scenario can score 1.00 and still have "Expected type found: no" (see s3).</p>
+  <div class="card table-card" style="margin-top:8px"><table class="data">
+    <thead><tr><th>Scenario</th><th>Precision <span class="sub">(any-type rule)</span></th><th>Recall <span class="sub">(any-type rule)</span></th><th>F1 <span class="sub">(any-type rule)</span></th><th>Detection latency (s)</th><th>False alarms</th>
+    <th>Oscillation index (flips / 10 min)</th><th>Max replica swing in a flag</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td data-label="Scenario">{{ r.id }}{% if r.note %}<span class="tag tag--coral note-tag">{{ r.note }}</span>{% endif %}</td><td data-label="Precision" class="num">{{ r.precision }}</td><td data-label="Recall" class="num">{{ r.recall }}</td>
+    <td data-label="F1" class="num">{{ r.f1 }}</td><td data-label="Latency (s)" class="num">{{ r.latency }}</td><td data-label="False alarms" class="num">{{ r.false_alarms }}</td>
+    <td data-label="Oscillation index" class="num">{{ r.osc }}</td><td data-label="Max replica swing" class="num">{{ r.swing }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="note" style="margin-top:12px">"Expected type found" = a flag of the same conflict type as the ground truth overlapped it.
+  A flag of another type that overlaps the truth window still counts as a detection (precision and recall use this
+  any-type rule) but is shown here as "no". "-" means not defined: no flags (precision), no truth or truth unknown
+  (recall, F1, latency). Latency = first matching flag time minus truth start, never below 0. The oscillation index counts
+  replica direction flips per 10 minutes over the whole run.</p>
+
+  <h3 style="margin-top:28px">2. Findings (generated from the runs)</h3>
+  <ul class="findings">{% for f in findings %}<li class="{{ 'warn' if f.warn else '' }}">{% if f.tag %}<span class="tag tag--coral">{{ f.tag }}</span> {% endif %}{{ f.text }}</li>{% endfor %}</ul>
+
+  <h3 style="margin-top:28px">3. Held-out variations (seeds {{ held_out_seeds }}, reported separately)</h3>
+  <div class="card table-card"><table class="data">
+    <thead><tr><th>Scenario</th><th>Runs flagged</th><th>Runs with expected type</th><th>Mean precision <span class="sub">(any-type rule)</span></th><th>Mean recall <span class="sub">(any-type rule)</span></th><th>Mean F1 <span class="sub">(any-type rule)</span></th>
+    <th>Mean latency (min-max), s</th><th>Mean false alarms</th><th>Detectors</th></tr></thead>
+    <tbody>{% for s in summaries %}<tr><td data-label="Scenario">{{ s.id }}{% if s.note %}<span class="tag tag--coral note-tag">{{ s.note }}</span>{% endif %}</td><td data-label="Runs flagged" class="num">{{ s.flagged }}</td><td data-label="Runs with expected type" class="num">{{ s.exact }}</td>
+    <td data-label="Mean precision" class="num">{{ s.precision }}</td><td data-label="Mean recall" class="num">{{ s.recall }}</td><td data-label="Mean F1" class="num">{{ s.f1 }}</td>
+    <td data-label="Mean latency (s)" class="num">{{ s.latency }}</td><td data-label="Mean false alarms" class="num">{{ s.false_alarms }}</td><td data-label="Detectors">{{ s.methods }}</td></tr>{% endfor %}</tbody></table></div>
+</section>
+
+<section id="replay">
+  <span class="tag tag--yellow">Scenario replay · simulated</span>
+  <h2 style="margin-top:12px">Watch each scenario <mark class="mark">unfold</mark></h2>
+  <p>Pick a scenario, press play or drag the slider. The lines grow from the same simulated run data that produced the CSV tables; dashed black lines mark the moment a detector fired; orange bands are Kafka rebalances.</p>
+  <noscript><p class="card card--alert">The interactive replay needs JavaScript. The static timelines are in the scenario cards further down.</p></noscript>
+  <div class="tabs" id="tabs" role="group" aria-label="Choose a scenario"></div>
+  <div class="card" id="replay-card">
+    <div class="replay-head"><span class="tag tag--yellow">SIMULATED · SEED {{ demo_seed }}</span>
+      <span class="timer" id="replay-timer">t = 0 s<span class="cursor" aria-hidden="true"></span></span></div>
+    <h3 id="replay-title"></h3><p id="replay-desc"></p>
+    <div id="charts"></div>
+    <p class="note" id="no-kafka" hidden><b>No Kafka traffic in this scenario.</b> Orange rebalance bands here are a modelling artefact (the simulator logs a rebalance whenever the set of ready pods changes) and affect nothing.</p>
+    <div class="controls"><button class="btn btn--primary" id="play" type="button" aria-pressed="false">Play</button>
+      <input id="scrub" type="range" min="0" max="0" value="0" step="1" aria-label="Scrub simulated time"></div>
+    <div class="readout">
+      <div><b>Replicas</b><span id="r-replicas">-</span></div><div><b>Ready</b><span id="r-ready">-</span></div>
+      <div><b>CPU request</b><span id="r-cpu">-</span></div><div><b>Lag</b><span id="r-lag">-</span></div>
+      <div><b>Rebalancing</b><span id="r-rebal">-</span></div><div><b>Utilisation</b><span id="r-util">-</span></div>
+    </div>
+    <div class="flaglist" id="flaglist"></div>
+  </div>
+</section>
+
+<section id="compare">
+  <span class="tag tag--yellow">Control versus conflict</span>
+  <h2 style="margin-top:12px">Quiet next to <mark class="mark">loud</mark></h2>
+  <p>The control scenario (HPA alone, no conflict) next to a conflict scenario of your choice, same timeline style, full run shown.</p>
+  <div class="tabs" id="cmp-tabs" role="group" aria-label="Choose a conflict scenario"></div>
+  <div class="cmp-cards"><div class="card" id="cmp-left"></div><div class="card" id="cmp-right"></div></div>
+</section>
+
+<section id="how">
+  <span class="tag tag--yellow">How detection runs</span>
+  <h2 style="margin-top:12px">Five stages, <mark class="mark">no</mark> machine learning</h2>
+  <div class="steps">
+    <div class="step"><div class="badge b-yellow">01</div><h3>Observe</h3><p>Reads the decisions of HPA, VPA and KEDA plus the workload state. Here the data comes from the simulator; a read-only Kubernetes adapter exists but has only been tested on hand-made data.</p></div>
+    <div class="step"><div class="badge b-blue">02</div><h3>Correlate</h3><p>Groups decisions from different controllers that happen close together in time: who acted near whom.</p></div>
+    <div class="step"><div class="badge b-coral">03</div><h3>Detect</h3><p>Four deterministic detectors: opposing actions, alternating controllers, direction reversals and the restart, rebalance, scale-out cascade. Every flag carries a plain-language reason and the event ids behind it.</p></div>
+    <div class="step"><div class="badge b-green">04</div><h3>Arbitrate</h3><p>A one-rule stub (VPA yields to HPA or KEDA during a scale event). Off by default and not used in any result on this page.</p></div>
+    <div class="step"><div class="badge b-purple">05</div><h3>Report</h3><p>Scores each run against ground truth written beforehand and writes this page, the CSV tables and the timelines.</p></div>
+  </div>
+</section>
+
+<section id="scenarios">
+  <span class="tag tag--yellow">Scenarios</span>
+  <h2 style="margin-top:12px">Every run, every <mark class="mark">flag</mark></h2>
+  {% for sc in scenarios %}<div class="card scenario-card" id="card-{{ sc.id }}">
+    <h3>{{ sc.id }} - {{ sc.title }}</h3>
+    <p class="note">{{ sc.description }} Controllers active: {{ sc.controllers }}. Ground truth: {{ sc.truth }}. {{ sc.notes }}</p>
+    <img alt="[SIMULATED] timeline for {{ sc.id }}" src="data:image/png;base64,{{ sc.image }}">
+    {% if sc.flags %}<table class="data"><thead><tr><th>Flag</th><th>Type</th><th>Method</th><th>At (s)</th><th>Window (s)</th><th>Controllers</th><th>Why it was flagged</th></tr></thead>
+    <tbody>{% for f in sc.flags %}<tr><td data-label="Flag">{{ f.id }}</td><td data-label="Type" class="nb">{{ f.type }}</td><td data-label="Method" class="nb">{{ f.method }}</td><td data-label="At (s)" class="num">{{ f.at }}</td>
+    <td data-label="Window (s)" class="num">{{ f.window }}</td><td data-label="Controllers">{{ f.controllers }}</td><td data-label="Why">{{ f.why }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}<p><b>No detector flag.</b></p>{% endif %}</div>{% endfor %}
+</section>
+
+<section id="limitations">
+  <span class="tag tag--coral">Limitations</span>
+  <h2 style="margin-top:12px"><mark class="mark">Limitations</mark> you should know</h2>
+  <ul class="limits">
+    <li>Simulated only: the model encodes our assumptions (see <code>configs/controllers.yaml</code>); results show a mechanism, not real-cluster frequency or magnitude.</li>
+    <li>Circularity: we author the conflicts and the detectors. Held-out seeds change only the random jitter, not the story; real-cluster scenarios are future work.</li>
+    <li>In-place pod resize (GA in Kubernetes 1.35) may remove the VPA restart in practice; scenario s5 reports what our model does, nothing more.</li>
+    <li>Two controllers acting on one replica count overwrite each other in the simulator (last writer wins). On a real cluster that is a misconfiguration: Kubernetes does not coordinate two autoscalers on one target, and as we understand it (not verified here) KEDA's own admission check is meant to block it for its targets. So s2 is a deliberately forced setup, not a common one.</li>
+    <li>Kafka rebalances are logged whenever the set of ready pods changes, even in scenarios with no Kafka traffic (s1, s4). Those orange bands are a modelling artefact; with no lag and no KEDA they do not affect any detector result.</li>
+    <li>Detection latency is the firing time minus a hand-written truth start: the detectors are reactive, and predicting a conflict before it happens (the proposal's longer-term goal) is not attempted here.</li>
+    <li>Parameters marked "assumption" need validation on a real cluster.</li>
+  </ul>
+</section>
+</main>
+<footer><div class="site-header-inner"><p class="note" style="margin:0">Files: <code>timeline_&lt;scenario&gt;.png</code>, <code>scaling_events.csv</code>,
+<code>workload_state.csv</code>, <code>detected_conflicts.csv</code> (all source=simulated). Offline page: no network requests.</p></div></footer>
+<script type="application/json" id="replay-data">{{ replay_json|safe }}</script>
+<script>{{ js|safe }}</script>
+</body></html>

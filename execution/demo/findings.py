@@ -28,7 +28,7 @@ LIMITATIONS = [
         'table is also guilty, and rolling back a downstream table can hide an upstream cause.'
     ),
     (
-        'One DAG, five tables and six scenarios are far too few for statistical claims. With so few tables a lineage- '
+        'One DAG, five tables and six scenarios are far too few for statistical claims. With so few tables a lineage-'
         'distance rule is hard to fool.'
     ),
     (
